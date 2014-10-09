@@ -17,9 +17,11 @@ $faxdir = $ASTSPOOLDIR."fax/";
 $recdir = $ASTSPOOLDIR."monitor/";
 
 if ($_GET['view']) {
+	$view = str_replace(' ', '+', $_GET['view']);
+
 	if ($_GET['type']=="FAX") 
 	{
-		$filename = $faxdir.basename($_GET['view']);
+		$filename = $faxdir.basename($view);
 		$fp=fopen($filename, "rb");
 	    if ($fp) {
 		    header("Pragma: public");
@@ -27,18 +29,18 @@ if ($_GET['view']) {
 		    header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
 		    header("Cache-Control: public");
 			header("Content-Type: application/octet-stream"); 
-			header("Content-Disposition: attachment; filename=".basename($_GET['view']));
+			header("Content-Disposition: attachment; filename=".basename($view));
 		    ob_clean();
 		    fpassthru($fp);
 		}else{
 			echo '<b>404 File lib not found!</b>';
 		}
 
-	}elseif ($_GET['type']=="Records" && file_exists($recdir.$_GET['view']) ){
-		$recordingfile = $recdir.$_GET['view'];
+	}elseif ($_GET['type']=="Records" && file_exists($recdir.$view) ){
+		$recordingfile = $recdir.$view;
 		
 		$wavfile = $tmpdir.basename($recordingfile).'.wav';
-		$name      = basename($_GET['view']);
+		$name      = basename($view);
 	    $extension = strtolower(substr(strrchr($name,"."),1));
 
 		if($extension == "wav"){
