@@ -43,7 +43,7 @@ $AGIDB = new AGIDB($agi, $db_name);
 /*------------------------------------------*/
 
 // check for 2.8-style tables - START
-$sql_fields="describe $db_name.cdr";
+$sql_fields="describe $db_name.PT1C_cdr";
 $fields = $AGIDB->sql($sql_fields, 'ASSOC');
 $recordingfile_exists = false;
 foreach($fields as $_data){
