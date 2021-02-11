@@ -1,0 +1,5 @@
+
+; [macro-exten-vm]
+; exten => s,2,Set(DIAL_OPTIONS=${IF(${REGEX("(M[(]auto-blkvm[)])" ${DIAL_OPTIONS})} != 1]?${DIAL_OPTIONS}M(miko-blkvm):${DIAL_OPTIONS})})
+; exten => docfu,2,Set(DIAL_OPTIONS=${IF(${REGEX("(M[(]auto-blkvm[)])" ${DIAL_OPTIONS})} != 1]?${DIAL_OPTIONS}M(miko-blkvm):${DIAL_OPTIONS})})
+; exten => docfb,2,Set(DIAL_OPTIONS=${IF(${REGEX("(M[(]auto-blkvm[)])" ${DIAL_OPTIONS})} != 1]?${DIAL_OPTIONS}M(miko-blkvm):${DIAL_OPTIONS})})

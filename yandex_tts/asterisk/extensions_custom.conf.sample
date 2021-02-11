@@ -1,0 +1,143 @@
+[from-internal-custom]
+; Основное приложение для работы Smart IVR.
+exten => 10999999,1,Goto(miko-ajam-ivr,s,1)
+; Тестовый EXTEN
+exten => 99999999,1,Set(FROM_DID=74952293042)
+    same => n,Set(MIKO_IS_TEST=1)
+    same => n,Goto(miko-ajam-ivr,s,1)
+
+exten => *1000078,1,NoOp(Start on dnd)
+    same => n,Set(command=put)
+    same => n,Set(dbFamily=UserBuddyStatus)
+    same => n,Set(key=SIP/${CALLERID(num)})
+    same => n,Set(val=4)
+    same => n,Set(chan=SIP/${CALLERID(num)})
+    same => n,AGI(1C_SetStatus.php)
+    same => n,Goto(app-dnd-on,*78,1)
+
+exten => *1000079,1,NoOp(Start off dnd)
+    same => n,Set(command=put)
+    same => n,Set(dbFamily=UserBuddyStatus)
+    same => n,Set(key=SIP/${CALLERID(num)})
+    same => n,Set(val=0)
+    same => n,Set(chan=${key})
+    same => n,AGI(1C_SetStatus.php)
+    same => n,Goto(app-dnd-off,*79,1)
+    
+; IVR меню
+[miko-ajam-ivr]
+exten => s,1,Answer()
+    ; Inform all the children NOT to send calls to destinations or voicemail
+	same => n,Set(__NODEST=${FROM_DID});
+	same => n,Ringing();
+	; Получение маршрута из 1С. Генерация речи.
+	same => n,AGI(/usr/src/yandex_tts/miko_smart_ivr_custom.php)
+	; В случе ошибки получения маршрута, адресуем на резервный номер телефона.
+	same => n,ExecIf($["${M_IVR_FAIL_DST}x" != "x"]?Goto(from-internal,${M_IVR_FAIL_DST},1))
+	same => n,Set(MIKO_PREFIX=M)
+	same => n,Gosub(miko-ajam-ivr-eval-rout,${FROM_DID},1)
+	; Это IVR. Включаем приветствие.
+	same => n,ExecIf($["${M_IVR_FILE}x" != "x"]?Background(${M_IVR_FILE},m,,miko-ajam-ivr))
+	; Ожидаем ввода добавочного.
+	same => n,ExecIf($["${M_IVR_FILE}x" != "x"]?Set(TIMEOUT(digit)=1))
+	same => n,ExecIf($["${M_IVR_FILE}x" != "x"]?WaitExten(7))
+	; Это НЕ IVR, простой каскад.
+	same => n,ExecIf($["${M_IVR_FILE}x" = "x"]?Goto(1,1))
+    same => n,Hangup
+
+; Обработка ввода добавочного номера.
+exten => _X,1,NoOP()
+	same => n,Set(MIKO_PREFIX=X)
+	; Добавляем проверку на ввведенный номер, если описан специфичный dialplan, то используем его. 
+	same => n,Set(app_name=${EXTEN}_ACTION_1)
+	same => n,ExecIf($["${${app_name}}x" != "x"]?Set(MIKO_PREFIX=${EXTEN}))
+	; Переходим к обработке маршрута
+	same => n,Gosub(miko-ajam-ivr-eval-rout,${FROM_DID},1)
+    same => n,Hangup
+exten => i,1,Goto(1,1)
+exten => _XXXXXX,1,Goto(from-internal,${EXTEN},1)
+
+; Обработка таймаута.
+exten => t,1,NoOP()
+    same => n,Set(MIKO_PREFIX=T)
+    same => n,Gosub(miko-ajam-ivr-eval-rout,${FROM_DID},1)
+    same => n,Hangup
+
+; Исходя из установленных переменных канала инициирует выолнение Dial или Playback.
+; Обходит в цикле все переменные, пока не встретиться пустое значение.
+[miko-ajam-ivr-eval-rout]
+exten => _X!,1,NoOP(- EVAL to ${MIKO_PREFIX} -)
+	same => n,Set(try_count=0)
+	same => n,Set(try_count=$[${try_count} + 1])
+	same => n,Set(app_name=${MIKO_PREFIX}_ACTION_${try_count})
+	same => n,Set(app_data=${MIKO_PREFIX}_ACTION_DATA_${try_count})
+	same => n,Set(app_timout=${MIKO_PREFIX}_ACTION_TIMEOUT_${try_count})
+	same => n,NoOp(${app_name} = ${${app_name}})
+	same => n,ExecIf($["${${app_name}}" = "Hangup"]?Hangup)
+	; Проверяем, если установлен флаг GOTO_START, то начать каскад действий сначала. 
+	; Сбрасываем счетчик ${try_count}. 
+	same => n,ExecIf($["${${app_name}}" = "GOTO_START" && "${MIKO_PREFIX}" = "M"]?Set(try_count=1)
+	same => n,ExecIf($["${${app_name}}" = "GOTO_START" && "${MIKO_PREFIX}" = "M"]?Goto(${EXTEN},3))
+	same => n,ExecIf($["${${app_name}}" = "GOTO_START"]?Goto(${EXTEN},2))
+	; Переход на цепочку таймаута. 
+	same => n,ExecIf($["${${app_name}}" = "GOTO_T"]?Goto(miko-ajam-ivr,t,1))
+	; Переход в начало IVR. 
+	same => n,ExecIf($["${${app_name}}" = "GOTO_M"]?Goto(miko-ajam-ivr,${EXTEN},1))
+	; Переход к "общей" цепочке действий. 
+	same => n,ExecIf($["${${app_name}}" = "GOTO_X"]?Goto(miko-ajam-ivr,000,1))
+	; Выполнение App
+	same => n,ExecIf($["${app_name}x" != "x" && "${${app_name}}x" != "x"]?Gosub(miko-ajam-ivr-${${app_name}},${FROM_DID},1))
+	; Следующая итерация цикла с увеличением значения счетчика. 
+	same => n,ExecIf($["${app_name}x" != "x" && "${${app_name}}x" != "x"]?Goto(${EXTEN},3))
+	same => n,return;
+
+; Обработка Dial
+[miko-ajam-ivr-dial]
+exten => _X!,1,NoOP(- DIAL to ${${app_data}} timeout ${${app_timout}}-)
+	same => n,Set(MIKO_SET_TIMEOUT=${MIKO_EMPTY})
+	same => n,ExecIf($["${DIALPLAN_EXISTS(from-internal-additional,${${app_data}},1)}" != "1"]?NoOp(Exten ${${app_data}} not found in from-internal))
+	same => n,ExecIf($["${DIALPLAN_EXISTS(from-internal-additional,${${app_data}},1)}" != "1"]?return)
+	same => n,ExecIf($["${DIALPLAN_EXISTS(ext-queues,${${app_data}},1)}" = "1"]?Set(MIKO_SET_TIMEOUT=1))
+	same => n,ExecIf($["${DIALPLAN_EXISTS(ext-local,${${app_data}},1)}" = "1"]?Set(MIKO_SET_TIMEOUT=1))
+	same => n,Set(M_TIMEOUT=${${app_timout}})
+	; Проверка статуса добавочного номера. 
+	; NOT_INUSE - для всех SIP пиров. 
+	; INVALID - для всех номеров очередей и прочих добавочных. Для них статус проверить нет возможнсоти, вызов разрешаем. 
+    same => n,Set(mikoNonInUse=$["${DEVICE_STATE(SIP/${${app_data}})}" = "INVALID" | "${DEVICE_STATE(SIP/${${app_data}})}" = "NOT_INUSE" ])
+	; Проверка статуса панели телефонии из AstDB. При паузе в очереди статус != 0;
+	same => n,Set(mikoStatus=${DB(UserBuddyStatus/SIP/${${app_data}})})
+	same => n,ExecIf($["${mikoStatus}x" == "x"]?Set(mikoStatus=0))
+	same => n,NoOP(- mikoStatus:${mikoStatus} number:${${app_data}} timeout:${${app_timout}} NonInUse=${mikoNonInUse} -)
+    ; Если статус в порядке, направляем вызов на внутренний номер. 
+    same => n,ExecIf($["${M_DIALSTATUS}x" != "ANSWERx" & "${mikoNonInUse}" = "1" & "${mikoStatus}" = "0"]?Dial(Local/${${app_data}}@miko-from-internal-additional/n,${M_TIMEOUT},${DIAL_OPTIONS}g))
+	same => n,ExecIf($["${M_DIALSTATUS}" = "ANSWER" & "${MIKO_SET_TIMEOUT}" = "1"]?Hangup)
+	same => n,ExecIf($["${DIALSTATUS}" = "ANSWER" & "${MIKO_SET_TIMEOUT}" != "1"]?Hangup)
+	same => n,return;
+
+; В этом контексте отрабатывают звонки.
+; Перед началом звонка устанавливается абсолютный таймают.
+; При ответе на звонок, в macro-auto-blkvm таймаут сбрасывается в 0
+[miko-from-internal-additional]
+exten => _X!,1,Set(MASTER_CHANNEL(M_TIMEOUT_CHANNEL)=${CHANNEL})
+    same => n,ExecIf($["${MASTER_CHANNEL(M_TIMEOUT)}x" != "x" & "${MASTER_CHANNEL(MIKO_SET_TIMEOUT)}x" != "x"]?Set(TIMEOUT(absolute)=${MASTER_CHANNEL(M_TIMEOUT)}))
+	same => n,Goto(from-internal-additional,${EXTEN},1)
+
+; Проигрывание медиа файла.
+[miko-ajam-ivr-playback]
+exten => _X!,1,NoOP(- PLAYBACK ${app_data} ${${app_data}}-)
+	same => n,Playback(${${app_data}})
+	same => n,return;
+
+
+; Сброс таймаута. И установка M_DIALSTATUS;
+[miko-ajam-ivr-clean-timeout]
+exten => _X!,1,Set(MASTER_CHANNEL(M_DIALSTATUS)=ANSWER)
+    same => n,AGI(/usr/src/yandex_tts/clean_timeout.php)
+    same => n,Set(MASTER_CHANNEL(M_TIMEOUT_CHANNEL)=${MIKO_EMPTY})
+	same => n,return;
+
+; Дополняем макрос. Переход в контекст сброса таймаута.
+[macro-auto-blkvm](+)
+; MIKO Start +
+exten => s,n,Gosub(miko-ajam-ivr-clean-timeout,1,1)
+; MIKO End -

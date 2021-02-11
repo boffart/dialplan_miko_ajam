@@ -564,11 +564,11 @@ class AGIDB {
 	// Make sure that at least one pair of backticks has been found.
 	if (!preg_match('/\`.+\`/', $sql)) {
 		$this->debug("SEVERE PROGRAMMING ERROR: For portability, COLUMNS must be ".
-			"surrounded by BACK TICKS (`), yet none were found. Continuing.", 0);
+			"surrounded by BACK TICKS (`), yet none were found. Continuing.", 90);
 	}
 	if (!preg_match('/\'.+\'/', $sql)) {
 		$this->debug("SEVERE PROGRAMMING ERROR: For portability, FIELDS must be ".
-			"surrounded by SINGLE QUOTES ('), yet none were found. Continuing.", 0);
+			"surrounded by SINGLE QUOTES ('), yet none were found. Continuing.", 90);
 	}
 	return $sql;
   }
@@ -600,7 +600,7 @@ class AGIDB {
 	
   function debug($string, $level=3) {
 	if (class_exists('AGI')) {
-       	$this->agi->verbose($string, $level);
+       	// $this->agi->verbose($string, $level);
 	} else {
 		print "$string\n";
 	}

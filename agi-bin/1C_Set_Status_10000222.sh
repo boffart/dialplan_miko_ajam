@@ -1,4 +1,5 @@
 #!/bin/sh
+# v.1.1
 # Consume all variables sent by Asterisk
 while read VAR && [ "$VAR" != '' ] ; do : ; done
 
@@ -42,9 +43,9 @@ if [ "$command" = 'get' ]; then
 	read result;
 	result=`echo "$result" | awk -F'[(]|[)]' ' { print $2} '`;
 	if [ "result" = '' ]; then
-		echo "EXEC UserEvent DB_$dbFamily$tmp_separator\"сhannel:$chan\"$tmp_separator\"key:$key\"$tmp_separator\"val:\"";
+		echo "EXEC UserEvent DB_$dbFamily$tmp_separator\"chan1c:$chan\"$tmp_separator\"key:$key\"$tmp_separator\"val:\"";
 	else
-		echo "EXEC UserEvent DB_$dbFamily$tmp_separator\"сhannel:$chan\"$tmp_separator\"key:$key\"$tmp_separator\"val:$result\"";
+		echo "EXEC UserEvent DB_$dbFamily$tmp_separator\"chan1c:$chan\"$tmp_separator\"key:$key\"$tmp_separator\"val:$result\"";
 	fi;
 elif [ "$command" = 'put' ]; then 
 	
@@ -68,9 +69,9 @@ elif [ "$command" = 'put' ]; then
 	read result;
 	result=`echo "$result" | awk -F' ' ' { print $2} '`;
 	if [ "$result" = 'result=1' ]; then
-		echo "EXEC UserEvent DB_$dbFamily$tmp_separator\"сhannel:$chan\"$tmp_separator\"key:$key\"$tmp_separator\"val:$val\"";
+		echo "EXEC UserEvent DB_$dbFamily$tmp_separator\"chan1c:$chan\"$tmp_separator\"key:$key\"$tmp_separator\"val:$val\"";
 	else
-		echo "EXEC UserEvent Error_data_put_$dbFamily$tmp_separator\"сhannel:$chan\"$tmp_separator\"key:$key\"$tmp_separator\"val:$val\"";
+		echo "EXEC UserEvent Error_data_put_$dbFamily$tmp_separator\"chan1c:$chan\"$tmp_separator\"key:$key\"$tmp_separator\"val:$val\"";
 	fi;
 	#
 elif [ "$command" = 'show' ]; then 
@@ -84,7 +85,8 @@ elif [ "$command" = 'show' ]; then
 	while [ $i -le $kol ]; do        
 		i=`expr $i + $kolpack`;	        
 		result=`cat "$tmp_file" | head -n "$i"| tail -n "$kolpack" | sed 's/$/...../g' | tr "\n" " " | tr " " "+" | sed 's/:/@.@/g' | sed 's/+/''/g' | sed 's/\/UserBuddyStatus\//''/g'`;
-		echo "EXEC UserEvent From$dbFamily$tmp_separator\"Channel:$chan\"$tmp_separator\"Lines:$result\"";
+		echo "EXEC UserEvent From$dbFamily$tmp_separator\"chan1c:$chan\"$tmp_separator\"Lines:$result\"";
 		read RESPONSE;
 	done;
+	rm "${tmp_file}";
 fi;

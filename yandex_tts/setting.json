@@ -1,0 +1,10 @@
+{
+  "url2": "http://172.16.32.42/stat/hs/ivr",
+  "auth2": "admin:123",
+  "tts_dir": "/usr/src/yandex_tts/tts",
+  "token": "AQVNxyq2eBk6hnpY8Ttvm1M1awnlu66IucKWCpmX",
+  "url": "http://192.168.10.236:81/steklodom_dev_huzina/hs/ivr",
+  "auth":  "WSclient:masterkey",
+  "voice": "omazh",
+  "fail_dst": "303"
+}

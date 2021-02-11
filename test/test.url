@@ -1,0 +1,39 @@
+
+
+// Dial to 10000111@miko_ajam
+h='s20.miko.ru';u='1cuser';p='1csecret';tcookie=`curl -I "http://${h}:808/asterisk/rawman?action=login&username=${u}&secret=${p}" | grep Cookie | awk -F': ' '{ print$2 }'`; curl --cookie "${tcookie}" "http://${h}:808/asterisk/rawman?action=originate&channel=Local/10000111@miko_ajam&application=NoCDR&Variable=v1=SIP/1000"
+
+// Dial to 10000109@miko_ajam
+h='s20.miko.ru';u='1cuser';p='1csecret';tcookie=`curl -I "http://${h}:808/asterisk/rawman?action=login&username=${u}&secret=${p}" | grep Cookie | awk -F': ' '{ print$2 }'`; curl --cookie "${tcookie}" "http://${h}:808/asterisk/rawman?action=originate&channel=Local/10000109@miko_ajam&Variable=tehnology=PJSIP,number=1000&Application=NoCDR"
+
+// Dial to 10000555@miko_ajam
+h='s20.miko.ru';u='1cuser';p='1csecret';tcookie=`curl -I "http://${h}:808/asterisk/rawman?action=login&username=${u}&secret=${p}" | grep Cookie | awk -F': ' '{ print$2 }'`; curl --cookie "${tcookie}" "http://${h}:808/asterisk/rawman?action=originate&channel=Local/10000555@miko_ajam&Variable=tehnology=PJSIP,number=1000&Application=NoCDR"
+
+// Dial to 10000109@miko_ajam
+h='172.16.32.71';u='1cuser';p='1csecret';tcookie=`curl -I "http://${h}:808/asterisk/rawman?action=login&username=${u}&secret=${p}" | grep Cookie | awk -F': ' '{ print$2 }'`; curl --cookie "${tcookie}" "http://${h}:808/asterisk/rawman?action=WaitEvent&Timeout=5"
+
+
+
+
+// Originate to 1001
+h='127.0.0.1';u='1cami';p='PASSWORD1cami';tcookie=`curl -I "http://${h}:8088/asterisk/rawman?action=login&username=${u}&secret=${p}" | grep Cookie | awk -F': ' '{ print$2 }'`; curl --cookie "${tcookie}" "http://${h}:8088/asterisk/rawman?action=originate&channel=SIP/1000&exten=1001&context=internal&priority=1&callerid=1000 <1000>&Variable=cid=1001&"
+
+
+
+
+Originate 1000 to 1001
+h='127.0.0.1';u='1cami';p='PASSWORD1cami';tcookie=`curl -I "http://${h}:8088/asterisk/rawman?action=login&username=${u}&secret=${p}" | grep Cookie | awk -F': ' '{ print$2 }'`; curl --cookie "${tcookie}" "http://${h}:8088/asterisk/rawman?action=originate&channel=Local/1000@internal-originate/n&exten=1001&context=internal&priority=1&Variable=pt1c_cid=1001&callerid=1000%20%3C1000%3E&"
+
+Originate 1001 to 1000
+h='127.0.0.1';u='1cami';p='PASSWORD1cami';tcookie=`curl -I "http://${h}:8088/asterisk/rawman?action=login&username=${u}&secret=${p}" | grep Cookie | awk -F': ' '{ print$2 }'`; curl --cookie "${tcookie}" "http://${h}:8088/asterisk/rawman?action=originate&channel=Local/1001@internal-originate/n&exten=1000&context=internal&priority=1&Variable=pt1c_cid=1000&callerid=1001%20%3C1001%3E&"
+
+
+// Dial to 10000555@miko_ajam
+h='127.0.0.1';u='1cami';p='PASSWORD1cami';tcookie=`curl -I "http://${h}:8088/asterisk/rawman?action=login&username=${u}&secret=${p}" | grep Cookie | awk -F': ' '{ print$2 }'`; curl --cookie "${tcookie}" "http://${h}:8088/asterisk/rawman?action=originate&channel=Local/10000555@miko_ajam&Variable=v1=SIP/1000,v2=2017-01-01,v3=2018-01-01,v4=1000&Application=NoCDR&context=miko_ajam&exten=10000111&priority=1"
+
+// Dial to 10000666@miko_ajam
+h='127.0.0.1';u='1cami';p='PASSWORD1cami';tcookie=`curl -I "http://${h}:8088/asterisk/rawman?action=login&username=${u}&secret=${p}" | grep Cookie | awk -F': ' '{ print$2 }'`; curl --cookie "${tcookie}" "http://${h}:8088/asterisk/rawman?action=originate&channel=Local/10000666@miko_ajam&Variable=v1=SIP/1000,v2=1507733527.24,v3=,v6=Records&Application=NoCDR&context=miko_ajam&exten=10000111&priority=1"
+
+
+// Dial to 10000777@miko_ajam
+h='127.0.0.1';u='1cami';p='PASSWORD1cami';tcookie=`curl -I "http://${h}:8088/asterisk/rawman?action=login&username=${u}&secret=${p}" | grep Cookie | awk -F': ' '{ print$2 }'`; curl --cookie "${tcookie}" "http://${h}:8088/asterisk/rawman?action=originate&channel=Local/10000777@miko_ajam&Variable=chan1c=SIP/1000,uniqueid1c=1507733527.24&Application=NoCDR&context=miko_ajam&exten=10000111&priority=1"
