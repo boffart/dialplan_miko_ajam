@@ -8,15 +8,23 @@
  */
 
 require_once __DIR__.'/src/YandexTTS.php';
+require_once __DIR__.'/src/SpeechProTTS.php';
 require_once __DIR__.'/src/Logger.php';
 
 use MIKO\Modules\ModuleSmartIVR\Lib\YandexTTS;
+use MIKO\Modules\ModuleSmartIVR\Lib\SpeechProTTS;
 use MIKO\Modules\Logger;
 
-$settings = json_decode(file_get_contents(__DIR__.'/setting.json'), true);
+$filename = __DIR__.'/setting.json';
+if(!file_exists($filename)){
+    exit(4);
+}
+
+$settings = json_decode(file_get_contents($filename), true);
 if(!$settings){
     exit(3);
 }
+
 function get_rout_from_1C($url, $phone, $auth, $did, $id){
     global $logger;
 
@@ -25,14 +33,11 @@ function get_rout_from_1C($url, $phone, $auth, $did, $id){
 
     curl_setopt($curl, CURLOPT_URL, 		  "{$url}/$phone?did=$did&linkedid=$id");
     curl_setopt($curl, CURLOPT_RETURNTRANSFER,true);
-    curl_setopt($curl, CURLOPT_TIMEOUT, 	  10);
+    curl_setopt($curl, CURLOPT_TIMEOUT, 	  4);
     curl_setopt($curl, CURLOPT_USERPWD, 	  $auth);
 
     $url_data = parse_url($url);
-    $scheme   = 'http';
-    if(isset($url_data['scheme'])){
-        $scheme =  $url_data['scheme'];
-    }
+    $scheme   = $url_data['scheme'] ?? 'http';
 
     if($scheme === 'https'){
         $t_false = $scheme !== 'https';
@@ -50,10 +55,10 @@ function get_rout_from_1C($url, $phone, $auth, $did, $id){
     if($code !== 200){
         $logger->write('ERROR http code from 1c = '.$code."\n",LOG_NOTICE);
         $logger->write("{$url}/$phone?did=$did",LOG_NOTICE);
-        $logger->write("$server_output",	LOG_NOTICE);
+        $logger->write($server_output,	LOG_NOTICE);
     }else{
         try{
-	        $result = json_decode($server_output, true);
+            $result = json_decode($server_output, true);
             if(!$result){
                 $logger->write('Error format response: '.$server_output."\n", LOG_NOTICE);
             }
@@ -65,137 +70,61 @@ function get_rout_from_1C($url, $phone, $auth, $did, $id){
     return $result;
 }
 
-/**
- * Удаляет расширение файла.
- * @param        $filename
- * @param string $delimiter
- * @return string
- */
-function trim_extension_file($filename, $delimiter='.'){
-    // Отсечем расширение файла.
-    $tmp_arr = explode("$delimiter", $filename);
-    if(count($tmp_arr)>1){
-        unset($tmp_arr[count($tmp_arr)-1]);
-        $filename = implode("$delimiter", $tmp_arr);
-    }
-    return $filename;
-}
-
 $logfile = null;
-$logger = new Logger('YandexTTS','ModuleSmartIVR');
-if(!empty($settings['logfile']) ){
-	$logger->setLogFile($settings['logfile']);
+$logger  = new Logger('TTS','ModuleSmartIVR');
+$settings['logger'] = $logger;
+if(!empty($settings['log-file']) ){
+    $settings['logger']->setLogFile($settings['log-file']);
 }
 
 $IS_TEST    = $argv[1];
 if($IS_TEST === '1'){
-	class AGI{
-		public function set_variable($var, $val){
-			echo "SET $var $val\n";
-		}
-	}
-    $logger->write('Start test'."\n", LOG_NOTICE);
-	$agi      = new AGI();
-    $did      = $argv[3]; // '73432374000';
-    $phone    = $argv[2];
-    $ivr_data = get_rout_from_1C($settings['url'], $phone, $settings['auth'], $did, $linkedid);
-    if(isset($ivr_data['voice']) && !empty($ivr_data['voice'])){
-        $voice    = $ivr_data['voice'];
-    }else{
-        $voice    = $settings['voice'];
+    class AGI{
+        public function set_variable($var, $val){
+            echo "SET $var $val\n";
+        }
     }
-    $linkedid = 'test-linkedid';
+    $agi      = new AGI();
+    $phone    = $argv[2]??'73432374000';
+    $did      = $argv[3]??'79257184255';
+    $linkedid = 'test-linkedid-'.time();
+
+    $ivr_data = get_rout_from_1C($settings['url'], $phone, $settings['auth'], $did, $linkedid);
+
 }else{
-	require_once __DIR__.'/src/phpagi.php';
-	$agi      = new AGI();
+    require_once __DIR__.'/src/phpagi.php';
+    $agi      = new AGI();
     $did      = $agi->get_variable('FROM_DID',     true);
-    $linkedid = $agi->get_variable('CDR(linkedid)',true);
+    $linkedid = $agi->get_variable('CNAHHEL(linkedid)',true);
     $phone    = $agi->request['agi_callerid'];
     try{
         $ivr_data = get_rout_from_1C($settings['url'], $phone, $settings['auth'], $did, $linkedid);
-        if(isset($ivr_data['voice']) && !empty($ivr_data['voice'])){
-            $voice    = $ivr_data['voice'];
-        }else{
-            $voice    = $settings['voice'];
-        }
     }catch (Exception $e){
         $ivr_data = false;
-		$agi->set_variable('M_IVR_FAIL_DST', $settings['fail_dst']);
+        $agi->set_variable('M_IVR_FAIL_DST', $settings['fail_dst']);
+        exit(0);
     }
 }
-
-$logger->agi = $agi;
-$y_tts  = new YandexTTS($settings['tts_dir'], $settings['token'], $logger);
-
 
 if(!$ivr_data){
     $logger->write('Go to M_IVR_FAIL_DST : '.$settings['fail_dst']."\n", LOG_NOTICE);
     $logger->write(''.print_r($ivr_data, true)."\n", LOG_NOTICE);
-	$agi->set_variable('M_IVR_FAIL_DST', $settings['fail_dst']);
+    $agi->set_variable('M_IVR_FAIL_DST', $settings['fail_dst']);
     exit(0);
 }
-$tts_dir  = rtrim($settings['tts_dir'], '/');
 
-$keys = array('m','t','x','1','2','3','4','5','6','7','8','9','0');
-foreach ($keys as $indx) {
-    $i = 1;
-    if(!isset($ivr_data[$indx])){
-        continue;
-    }
-    $prefix = strtoupper($indx);
-    foreach ($ivr_data[$indx] as $key => $val){
-        $app = '';
-        $data= '';
-
-        foreach ($val as $k => $v){
-            $app = $k;
-            $data= trim($v);
-            continue;
-        }
-        if($app === 'Playback' || $app === 'PlaybackFile'){
-            if($app === 'Playback'){
-                // Если это НЕ файл, то это текст для генерации речи.
-                $filename = $y_tts->Synthesize(explode('|', $data), $voice).".wav";
-            }else{
-                $filename = "{$tts_dir}/{$data}";
-            }
-            if(!file_exists($filename)){
-                continue;
-            }
-            if($indx === 'm' && count($ivr_data[$indx]) === $key + 1){
-                $agi->set_variable("{$prefix}_IVR_FILE",          trim_extension_file($filename));
-            }else{
-                $agi->set_variable("{$prefix}_ACTION_{$i}",       'playback');
-                $agi->set_variable("{$prefix}_ACTION_DATA_{$i}",  trim_extension_file($filename));
-            }
-            $i++;
-        }elseif ($app === 'GOTO_START'){
-            $agi->set_variable("{$prefix}_ACTION_{$i}",         'GOTO_START');
-            $agi->set_variable("{$prefix}_ACTION_DATA_{$i}",    '');
-            $agi->set_variable("{$prefix}_ACTION_TIMEOUT_{$i}", '');
-        }elseif ($app === 'GOTO_T'){
-            $agi->set_variable("{$prefix}_ACTION_{$i}",         'GOTO_T');
-            $agi->set_variable("{$prefix}_ACTION_DATA_{$i}",    '');
-            $agi->set_variable("{$prefix}_ACTION_TIMEOUT_{$i}", '');
-        }elseif ($app === 'GOTO_M'){
-            $agi->set_variable("{$prefix}_ACTION_{$i}",         'GOTO_M');
-            $agi->set_variable("{$prefix}_ACTION_DATA_{$i}",    '');
-            $agi->set_variable("{$prefix}_ACTION_TIMEOUT_{$i}", '');
-        }elseif ($app === 'GOTO_X'){
-            $agi->set_variable("{$prefix}_ACTION_{$i}",         'GOTO_X');
-            $agi->set_variable("{$prefix}_ACTION_DATA_{$i}",    '');
-            $agi->set_variable("{$prefix}_ACTION_TIMEOUT_{$i}", '');
-        }elseif ($app === 'Hangup'){
-            $agi->set_variable("{$prefix}_ACTION_{$i}",         'Hangup');
-            $agi->set_variable("{$prefix}_ACTION_DATA_{$i}",    '');
-            $agi->set_variable("{$prefix}_ACTION_TIMEOUT_{$i}", '');
-            $i++;
-        }elseif (is_numeric($app)){
-            $agi->set_variable("{$prefix}_ACTION_{$i}",         'dial');
-            $agi->set_variable("{$prefix}_ACTION_DATA_{$i}",    $app);
-            $agi->set_variable("{$prefix}_ACTION_TIMEOUT_{$i}", $data);
-            $i++;
-        }
-    }
+$serviceTTS = $settings['tts-engine']??'ya';
+if('ya' === $serviceTTS){
+    $tts = new YandexTTS($settings);
+}else{
+    $tts = new SpeechProTTS($settings);
 }
+
+$voice = $ivr_data['voice']??'';
+if(empty($voice)){
+    $voice    = $settings[$serviceTTS.'-voice']??'';
+}
+
+$filename = $tts->Synthesize(explode('|', 'Тест '), $voice).".wav";
+
 

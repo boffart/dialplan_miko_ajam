@@ -1,10 +1,16 @@
 {
-  "url2": "http://172.16.32.42/stat/hs/ivr",
-  "auth2": "admin:123",
-  "tts_dir": "/usr/src/yandex_tts/tts",
-  "token": "AQVNxyq2eBk6hnpY8Ttvm1M1awnlu66IucKWCpmX",
-  "url": "http://192.168.10.236:81/steklodom_dev_huzina/hs/ivr",
-  "auth":  "WSclient:masterkey",
-  "voice": "omazh",
-  "fail_dst": "303"
+  "tts-dir":    "/tmp/yandex_tts/",
+  "log-file":   "/tmp/yandex_tts/smart-ivr.log",
+  "url":        "http://192.168.10.236:81/test/hs/ivr",
+  "auth":       "WSclient:masterkey",
+  "fail-dst":   "303",
+  "tts-engine": "sp",
+
+  "ya-token":   "AQVNxyq2eBk6hnp",
+  "ya-voice":   "alena",
+
+  "sp-voice":   "Vladimir_8000n",
+  "sp-login":   "test",
+  "sp-password":"0004169N!",
+  "sp-domain":  "990"
 }

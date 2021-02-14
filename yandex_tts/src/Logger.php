@@ -10,14 +10,13 @@ namespace MIKO\Modules;
 
 class Logger {
 
-    public $agi;
-    public $logfile; // '/var/log/asterisk/smart.log'
+    public string $logfile = ''; // '/var/log/asterisk/smart.log'
 
     public function __construct($class_name, $module_id){
 
     }
 
-	public function setLogFile($path){
+	public function setLogFile($path):void{
 		$this->logfile = $path;	
 	}
 
@@ -26,18 +25,26 @@ class Logger {
      * @param $p1
      * @param $p2
      */
-    public function write($p1, $p2) {
-	    if($this->logfile === null){
+    public function write($p1, $p2):void {
+	    if(empty($this->logfile)){
 		    return;
 	    }
-
         if (is_array($p1)){
             foreach ($p1 as $val){
 				file_put_contents($this->logfile, '['.date('D M d H:i:s Y',time()).'] '. $val . "\n", FILE_APPEND);
             }
         }else{
-			file_put_contents($this->logfile, '['.date('D M d H:i:s Y',time()).'] '. $p1. "\n", FILE_APPEND);
+			file_put_contents($this->logfile, '['.date('D M d H:i:s Y',time()).'] '. $p1. ' '.$p2."\n", FILE_APPEND);
         }
+    }
 
+    public function writeInfo($text):void
+    {
+        $this->write('TTS: INFO', $text);
+    }
+
+    public function writeError($text):void
+    {
+        $this->write('TTS: ERROR', $text);
     }
 }

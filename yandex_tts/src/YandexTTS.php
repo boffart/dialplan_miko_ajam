@@ -21,11 +21,9 @@ class YandexTTS
     /**
      * YandexTTS constructor.
      *
-     * @param $ttsDir  - result sound dir
-     * @param $api_key - auth array for service
-     * @param $logger
+     * @param $settings  - result sound dir
      */
-    public function __construct($ttsDir, $api_key, $logger)
+    public function __construct(array $settings)
     {
         $this->voices = array(
             'oksana',
@@ -39,9 +37,9 @@ class YandexTTS
         );
 
         $this->messages = array();
-        $this->api_key  = $api_key;
-        $this->ttsDir   = $ttsDir;
-        $this->logger   = $logger;
+        $this->api_key  = $settings['ya-token']??'';
+        $this->ttsDir   = $settings['tts-dir']??'';
+        $this->logger   = $settings['logger'];
     }
 
     /**
