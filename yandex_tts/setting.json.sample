@@ -1,16 +1,21 @@
 {
-  "tts-dir":    "/tmp/yandex_tts/",
-  "log-file":   "/tmp/yandex_tts/smart-ivr.log",
-  "url":        "http://192.168.10.236:81/test/hs/ivr",
-  "auth":       "WSclient:masterkey",
-  "fail-dst":   "303",
-  "tts-engine": "sp",
+  "tts-dir":          "/tmp/yandex_tts/",
+  "log-file":         "/tmp/yandex_tts/smart-ivr.log",
+  "crm-url-http":     "http://192.168.10.236:81/test/hs/ivr",
 
-  "ya-token":   "AQVNxyq2eBk6hnp",
-  "ya-voice":   "alena",
+  "crm-url-soap":     "http://172.16.32.42:8082/statistic/ws/MIKO_IVRGenerator4SmartTransfer.1cws",
+  "crm-uri-soap":     "http://wiki.miko.ru/doc:1cajam:smarttransfer",
+  "crm-function-soap":"getivrtext",
+  "crm-http-auth":    "test:123",
 
-  "sp-voice":   "Vladimir_8000n",
-  "sp-login":   "test",
-  "sp-password":"0004169N!",
-  "sp-domain":  "990"
+  "fail-dst":         "303",
+  "tts-engine":       "sp",
+
+  "ya-token":         "AQVNxyq2eBk6hnp",
+  "ya-voice":         "alena",
+
+  "sp-voice":         "Vladimir_8000n",
+  "sp-login":         "test",
+  "sp-password":      "0004169N!",
+  "sp-domain":        "990"
 }

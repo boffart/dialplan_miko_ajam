@@ -52,12 +52,12 @@ class YandexTTS
      */
     public function Synthesize($text, $voice){
         if ( ! in_array($voice, $this->voices, true)) {
-            $this->logger->write("Voice $voice doesn't exist. We will use default jane.", LOG_NOTICE);
+            $this->logger->writeInfo("Voice $voice doesn't exist. We will use default jane.");
             $voice            = 'jane';
         }
 
-        $this->logger->write('Start synthesis by YandexTTS',LOG_NOTICE);
-        $this->logger->write($text,LOG_NOTICE);
+        $this->logger->writeInfo('Start synthesis by YandexTTS');
+        $this->logger->writeInfo($text);
 
         if (is_array($text)) {
             if(count($text) > 1){
@@ -72,9 +72,9 @@ class YandexTTS
         }
 
         if (!empty($result)){
-            $this->logger->write("Synthesis result file: $result",LOG_NOTICE);
+            $this->logger->writeInfo("Synthesis result file: $result");
         } else {
-            $this->logger->write('Synthesis failure', "\Phalcon\Logger::WARNING");
+            $this->logger->writeError('Synthesis failure', "\Phalcon\Logger::WARNING");
             $this->messages[]='Synthesis by YandexTTS failure';
         }
         return $result;
@@ -111,7 +111,7 @@ class YandexTTS
 
         // Проверим, ранее уже генерировали такой файл?
         if (file_exists($fullFileName) && filesize($fullFileName) > 0) {
-            $this->logger->write( 'TTS found in the cache for: ' . urldecode($text_to_speech . $voice) . ' file: ' . $fullFileName, LOG_NOTICE);
+            $this->logger->writeInfo( 'TTS found in the cache for: ' . urldecode($text_to_speech . $voice) . ' file: ' . $fullFileName);
             return $this->ttsDir . $speech_filename;
         }
 
@@ -144,8 +144,8 @@ class YandexTTS
         fclose($fp);
 
         if (200 === $http_code && file_exists($fullFileNameFromService) && filesize($fullFileNameFromService) > 0) {
-            $this->logger->write('Successful generation into: ' . $fullFileNameFromService
-                . ' file size: ' . filesize($fullFileNameFromService), LOG_NOTICE);
+            $this->logger->writeInfo('Successful generation into: ' . $fullFileNameFromService
+                . ' file size: ' . filesize($fullFileNameFromService));
             exec("sox -r 8000 -e signed-integer -b 16 -c 1 -t raw {$fullFileNameFromService} {$fullFileName}");
 
             if (file_exists($fullFileName)) {
@@ -163,7 +163,7 @@ class YandexTTS
         $errorDescription = "TTSConnectionError: when we are trying to get sound from
              https://tts.api.cloud.yandex.net we got http-code: $http_code".PHP_EOL."We use Api-Key $this->api_key header for auth";
         $this->messages[] = $errorDescription;
-        $this->logger->write( $errorDescription, "\Phalcon\Logger::ERROR");
+        $this->logger->writeError( $errorDescription, "\Phalcon\Logger::ERROR");
         return null;
     }
 
@@ -187,8 +187,8 @@ class YandexTTS
         // Проверим нет ли ранее сгенерированного полного файла записи.
         $fullFileName = $this->ttsDir . $ivr_filename . $ivr_extension;
         if (file_exists($fullFileName) && filesize($fullFileName) > 0) {
-            $this->logger->write( 'TTS found in the cache for: ' . urldecode(implode(' ',
-                    $arr_text_to_speech)) . ' file: ' . $fullFileName, LOG_NOTICE);
+            $this->logger->writeError( 'TTS found in the cache for: ' . urldecode(implode(' ',
+                    $arr_text_to_speech)) . ' file: ' . $fullFileName);
             return $this->ttsDir . $ivr_filename;
         }
 

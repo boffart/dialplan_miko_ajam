@@ -7,12 +7,20 @@
  * Written by Alexey Portnov, 2 2020
  */
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once __DIR__.'/src/YandexTTS.php';
 require_once __DIR__.'/src/SpeechProTTS.php';
+require_once __DIR__.'/src/UtilFunctions.php';
 require_once __DIR__.'/src/Logger.php';
+require_once __DIR__.'/src/phpagi.php';
+require_once __DIR__.'/src/phpagi-asmanager.php';
 
 use MIKO\Modules\ModuleSmartIVR\Lib\YandexTTS;
 use MIKO\Modules\ModuleSmartIVR\Lib\SpeechProTTS;
+use MIKO\Modules\ModuleSmartIVR\Lib\UtilFunctions;
 use MIKO\Modules\Logger;
 
 $filename = __DIR__.'/setting.json';
@@ -25,85 +33,25 @@ if(!$settings){
     exit(3);
 }
 
-function get_rout_from_1C($url, $phone, $auth, $did, $id){
-    global $logger;
-
-    $result = null;
-    $curl = curl_init();
-
-    curl_setopt($curl, CURLOPT_URL, 		  "{$url}/$phone?did=$did&linkedid=$id");
-    curl_setopt($curl, CURLOPT_RETURNTRANSFER,true);
-    curl_setopt($curl, CURLOPT_TIMEOUT, 	  4);
-    curl_setopt($curl, CURLOPT_USERPWD, 	  $auth);
-
-    $url_data = parse_url($url);
-    $scheme   = $url_data['scheme'] ?? 'http';
-
-    if($scheme === 'https'){
-        $t_false = $scheme !== 'https';
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, $t_false);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, $t_false);
-    }
-
-    $server_output = curl_exec($curl);
-    $code          = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    curl_close($curl);
-
-    // В некоторых случаях нужно отсеч первый битый символ псевдо пробела.
-    $server_output = substr($server_output, strpos($server_output,'{'));
-
-    if($code !== 200){
-        $logger->write('ERROR http code from 1c = '.$code."\n",LOG_NOTICE);
-        $logger->write("{$url}/$phone?did=$did",LOG_NOTICE);
-        $logger->write($server_output,	LOG_NOTICE);
-    }else{
-        try{
-            $result = json_decode($server_output, true);
-            if(!$result){
-                $logger->write('Error format response: '.$server_output."\n", LOG_NOTICE);
-            }
-        } catch (Exception $e) {
-            $logger->write('Error: '.$e->getMessage()."\n", LOG_NOTICE);
-        }
-    }
-
-    return $result;
-}
-
-$logfile = null;
-$logger  = new Logger('TTS','ModuleSmartIVR');
+$logger  = new Logger($settings);
 $settings['logger'] = $logger;
-if(!empty($settings['log-file']) ){
-    $settings['logger']->setLogFile($settings['log-file']);
-}
 
-$IS_TEST    = $argv[1];
-if($IS_TEST === '1'){
-    class AGI{
-        public function set_variable($var, $val){
-            echo "SET $var $val\n";
-        }
-    }
-    $agi      = new AGI();
-    $phone    = $argv[2]??'73432374000';
-    $did      = $argv[3]??'79257184255';
-    $linkedid = 'test-linkedid-'.time();
+$agi = new AGI();
+$agi->exec('Ringing', '');
+$agi->set_variable('AGIEXITONHANGUP', 'yes');
+$agi->set_variable('AGISIGHUP', 'yes');
+$agi->set_variable('__ENDCALLONANSWER', 'yes');
 
-    $ivr_data = get_rout_from_1C($settings['url'], $phone, $settings['auth'], $did, $linkedid);
-
-}else{
-    require_once __DIR__.'/src/phpagi.php';
-    $agi      = new AGI();
-    $did      = $agi->get_variable('FROM_DID',     true);
-    $linkedid = $agi->get_variable('CNAHHEL(linkedid)',true);
-    $phone    = $agi->request['agi_callerid'];
-    try{
-        $ivr_data = get_rout_from_1C($settings['url'], $phone, $settings['auth'], $did, $linkedid);
-    }catch (Exception $e){
-        $ivr_data = false;
-        $agi->set_variable('M_IVR_FAIL_DST', $settings['fail_dst']);
-        exit(0);
-    }
+$did      = $agi->get_variable('FROM_DID',     true);
+$linkedid = $agi->get_variable('CHANNEL(linkedid)',true);
+$phone    = $agi->request['agi_callerid'];
+try{
+    $ivr_data = UtilFunctions::post1cSoapRequest(['Number'=>$phone, 'Linkedid'=>$linkedid, 'DID'=>$did], $settings);
+    $settings = UtilFunctions::overrideConfigurationArray($settings, $ivr_data);
+}catch (Exception $e){
+    $ivr_data = false;
+    $agi->set_variable('M_IVR_FAIL_DST', $settings['fail_dst']);
+    exit(0);
 }
 
 if(!$ivr_data){
@@ -124,7 +72,65 @@ $voice = $ivr_data['voice']??'';
 if(empty($voice)){
     $voice    = $settings[$serviceTTS.'-voice']??'';
 }
+$agi->Answer();
 
-$filename = $tts->Synthesize(explode('|', 'Тест '), $voice).".wav";
+$filename = $tts->Synthesize(explode('|', $ivr_data['greeting-text']??''), $voice).".wav";
+if(!file_exists($filename)){
+    $logger->write("Ошибка при генерации речи. Файл не был создан. \n", LOG_NOTICE);
+    $agi->set_variable('M_IVR_FAIL_DST', $settings['fail_dst']);
+    exit(0);
+}
+$filename = UtilFunctions::trimExtensionForFile($filename);
+$timeoutWaiting = ($ivr_data['timeout-waiting]']??2)*1000;
+$responsibleNumber = $ivr_data['responsible-number']??'';
+$staff = $ivr_data['staff']??[];
+
+if(!empty($responsibleNumber)){
+    // Соединяем с основным ответственным. Вес более 80%
+    $agi->exec('Playback', $filename);
+    $state = UtilFunctions::getExtensionStatus($responsibleNumber, $settings);
+    $dst = ($state['extension-status'] >= 0)?$responsibleNumber:$settings['fail-dst'];
+    $agi->noop("responsibleNumber -> $responsibleNumber, state -> {$state['extension-status']} goto {$dst}");
+    $agi->exec_goto($settings['context'], $dst, '1');
+}elseif(count($staff)>0){
+    $agi->noop('Count staff > 0');
+    // Соединяем с первым по списку.
+    // Есть возможность набрать добавочный.
+    $result = $agi->get_data($filename, $timeoutWaiting, 3);
+    $selectedNum = $result['result']??'';
+    $staffNumber = '';
+    foreach ($staff as $user => $number){
+        $staffNumber =  $number;
+        break;
+    }
+    $stateSelected  = UtilFunctions::getExtensionStatus($selectedNum, $settings);
+    $stateStaff     = UtilFunctions::getExtensionStatus($staffNumber, $settings);
+    if(!empty($selectedNum)){
+        $agi->noop('Client enter number '. $stateSelected);
+    }
+    $agi->noop("stateSelected -> {$stateSelected['extension-status']}, stateStaff -> {$stateStaff['extension-status']}");
+
+    if($stateSelected['extension-status'] >= 0){
+        $agi->noop('Goto number '. $stateSelected);
+        $dst = $stateSelected;
+    }elseif($stateStaff['extension-status'] >= 0){
+        $agi->noop('Goto number '. $staffNumber);
+        $dst = $staffNumber;
+    }else{
+        $agi->noop('Goto fail dst '. $staffNumber);
+        $dst = $settings['fail-dst'];
+    }
+    $agi->exec_goto($settings['context'], $dst, '1');
+}else{
+    // Проигрываем голосовое меню.
+    // Есть возможность набрать добавочный.
+    // Направляем на резервный номер.
+    $result = $agi->get_data($filename, $timeoutWaiting, 3);
+    $selectedNum = $result['result']??'';
+    $state = UtilFunctions::getExtensionStatus($selectedNum, $settings);
+    $dst = ($state['extension-status'] >= 0)?$selectedNum:$settings['fail-dst'];
+    $agi->noop("responsibleNumber -> $responsibleNumber, state -> {$state['extension-status']} goto {$dst}");
+    $agi->exec_goto($settings['context'], $dst, '1');
+}
 
 

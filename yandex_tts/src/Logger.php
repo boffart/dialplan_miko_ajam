@@ -12,8 +12,13 @@ class Logger {
 
     public string $logfile = ''; // '/var/log/asterisk/smart.log'
 
-    public function __construct($class_name, $module_id){
-
+    public function __construct(array $settings){
+        // $class_name = 'TTS';
+        // $module_id  = 'ModuleSmartIVR';
+        $logFile = $settings['log-file']??'';
+        if(!empty($logFile) ){
+            $this->setLogFile($logFile);
+        }
     }
 
 	public function setLogFile($path):void{
@@ -29,8 +34,8 @@ class Logger {
 	    if(empty($this->logfile)){
 		    return;
 	    }
-        if (is_array($p1)){
-            foreach ($p1 as $val){
+        if (is_array($p2)){
+            foreach ($p2 as $val){
 				file_put_contents($this->logfile, '['.date('D M d H:i:s Y',time()).'] '. $val . "\n", FILE_APPEND);
             }
         }else{
