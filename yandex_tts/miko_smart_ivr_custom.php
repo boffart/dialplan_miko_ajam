@@ -7,10 +7,6 @@
  * Written by Alexey Portnov, 2 2020
  */
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 require_once __DIR__.'/src/YandexTTS.php';
 require_once __DIR__.'/src/SpeechProTTS.php';
 require_once __DIR__.'/src/UtilFunctions.php';
@@ -43,6 +39,9 @@ $agi->set_variable('AGISIGHUP', 'yes');
 $agi->set_variable('__ENDCALLONANSWER', 'yes');
 
 $did      = $agi->get_variable('FROM_DID',     true);
+if(empty($did)){
+    $did      = $agi->request['agi_extension'];
+}
 $linkedid = $agi->get_variable('CHANNEL(linkedid)',true);
 $phone    = $agi->request['agi_callerid'];
 try{
@@ -73,11 +72,11 @@ if(empty($voice)){
     $voice    = $settings[$serviceTTS.'-voice']??'';
 }
 $agi->Answer();
+$agi->set_variable('MIKO_SMART_IVR_OK', '0');
 
 $filename = $tts->Synthesize(explode('|', $ivr_data['greeting-text']??''), $voice).".wav";
 if(!file_exists($filename)){
     $logger->write("Ошибка при генерации речи. Файл не был создан. \n", LOG_NOTICE);
-    $agi->set_variable('M_IVR_FAIL_DST', $settings['fail_dst']);
     exit(0);
 }
 $filename = UtilFunctions::trimExtensionForFile($filename);
@@ -85,13 +84,17 @@ $timeoutWaiting = ($ivr_data['timeout-waiting]']??2)*1000;
 $responsibleNumber = $ivr_data['responsible-number']??'';
 $staff = $ivr_data['staff']??[];
 
+$dst = '';
+$dstBusy = false;
 if(!empty($responsibleNumber)){
     // Соединяем с основным ответственным. Вес более 80%
     $agi->exec('Playback', $filename);
     $state = UtilFunctions::getExtensionStatus($responsibleNumber, $settings);
-    $dst = ($state['extension-status'] >= 0)?$responsibleNumber:$settings['fail-dst'];
-    $agi->noop("responsibleNumber -> $responsibleNumber, state -> {$state['extension-status']} goto {$dst}");
-    $agi->exec_goto($settings['context'], $dst, '1');
+    if($state['extension-status'] >= 0){
+        $agi->noop("responsibleNumber -> $responsibleNumber, state -> {$state['extension-status']}");
+        $dst = $responsibleNumber;
+    }
+    $dstBusy = $state['extension-status'] > 0;
 }elseif(count($staff)>0){
     $agi->noop('Count staff > 0');
     // Соединяем с первым по списку.
@@ -109,28 +112,37 @@ if(!empty($responsibleNumber)){
         $agi->noop('Client enter number '. $stateSelected);
     }
     $agi->noop("stateSelected -> {$stateSelected['extension-status']}, stateStaff -> {$stateStaff['extension-status']}");
-
     if($stateSelected['extension-status'] >= 0){
         $agi->noop('Goto number '. $stateSelected);
         $dst = $stateSelected;
+        $dstBusy = $stateSelected['extension-status'] > 0;
     }elseif($stateStaff['extension-status'] >= 0){
         $agi->noop('Goto number '. $staffNumber);
         $dst = $staffNumber;
-    }else{
-        $agi->noop('Goto fail dst '. $staffNumber);
-        $dst = $settings['fail-dst'];
+        $dstBusy = $stateStaff['extension-status'] > 0;
     }
-    $agi->exec_goto($settings['context'], $dst, '1');
 }else{
     // Проигрываем голосовое меню.
     // Есть возможность набрать добавочный.
-    // Направляем на резервный номер.
     $result = $agi->get_data($filename, $timeoutWaiting, 3);
     $selectedNum = $result['result']??'';
+    $agi->set_variable('MIKO_SMART_IVR_OK', '1');
     $state = UtilFunctions::getExtensionStatus($selectedNum, $settings);
-    $dst = ($state['extension-status'] >= 0)?$selectedNum:$settings['fail-dst'];
-    $agi->noop("responsibleNumber -> $responsibleNumber, state -> {$state['extension-status']} goto {$dst}");
-    $agi->exec_goto($settings['context'], $dst, '1');
+    $agi->noop("stateSelected -> {$state['extension-status']} selectedNum -> {$selectedNum}");
+    if($state['extension-status'] >= 0) {
+        $dst = $selectedNum;
+    }
+    $dstBusy = $state['extension-status'] > 0;
 }
 
+if($dstBusy === true){
+    $filename = $tts->Synthesize(explode('|', $ivr_data['busy-text']??''), $voice);
+    $agi->exec('Playback', $filename);
+    $agi->set_variable('MIKO_SMART_IVR_OK', '0');
+    exit(0);
+}
 
+if(!empty($dst)){
+    $agi->set_variable('MIKO_SMART_IVR_OK', '1');
+    $agi->exec_goto($settings['context'], $dst, '1');
+}

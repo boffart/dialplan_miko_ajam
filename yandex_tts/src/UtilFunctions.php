@@ -209,7 +209,7 @@ class UtilFunctions
      */
     public static function getExtensionStatus($number, $settings): array
     {
-        $result = ['hint-status'=>-2, 'extension-status' => -2];
+        $result = ['extension-status' => -2];
         /**
          * -1 = Extension not found
          * 0 = Idle
@@ -228,8 +228,7 @@ class UtilFunctions
         $resExten = $ami->ExtensionState($number, $settings['context']??'');
 
         $result = [
-            'hint-status'=> (int) ($resHint['Status']??-2),
-            'extension-status' => (int) ($resExten['Status']??-2),
+            'extension-status'=> (int) ($resHint['Status']??-2),
         ];
 
         $ami->disconnect();
