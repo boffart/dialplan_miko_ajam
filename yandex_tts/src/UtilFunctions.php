@@ -116,10 +116,10 @@ class UtilFunctions
         $url = $wslink;
         /**
         if (strpos($url, 'https') !== false) {
-            curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
-            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
         }
-        **/
+         **/
         $ckfile = '/tmp/module_smart_ivr_1c_session_cookie.txt';
 
         curl_setopt($curl, CURLOPT_URL, $url);
@@ -138,30 +138,15 @@ class UtilFunctions
         $resultRequest = curl_exec($curl);
         $http_code     = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
-
         $have_error = false;
         if (0 === $http_code) {
-//            $errorDescription = 'ConnectionToCRMError: No access to 1C:Enterprise.' . PHP_EOL .
-//                "We use the next params: server:{$this->server_1c_host}," .
-//                "port:{$this->server_1c_port}, login: {$this->login}, " .
-//                "password: {$this->secret}, method: ${wsfunction}," . PHP_EOL .
-//                " url: $url" . PHP_EOL . 'We try POST xml: ' . $xmlDocument;
-//            $this->messages[] = $errorDescription;
-//            $this->logger->writeError($errorDescription);
             $have_error = true;
         } elseif ( ! $relogin && in_array($http_code, [400, 500], false)) {
-            return self::post1cSoapRequest($numberData, $settings, true);
+            return post1cSoapRequest($numberData, $settings, true);
         } elseif (in_array($http_code, [401, 403], false)) {
-            $errorDescription = "ConnectionToCRMError: HTTP code $http_code check username or password 1C:Enterprise.
-             Method: ${wsfunction}.";
-//            $this->messages[] = $errorDescription;
-//            $this->logger->writeError($errorDescription);
             $have_error = true;
         } elseif ($http_code !== 200) {
-            $errorDescription = "ConnectionToCRMError: HTTP code $http_code 1C:Enterprise. Method: $wsfunction. HTTP_CODE: $http_code";
-//            $this->logger->writeError($errorDescription);
-//            $this->messages[] = $errorDescription;
-            $have_error       = true;
+            $have_error = true;
         }
 
         if ( !$have_error) {
@@ -173,7 +158,11 @@ class UtilFunctions
                 $soap               = $xml->children($ns['soap']);
                 $getAddressResponse = $soap->Body->children($ns['m']);
                 $functionResultName = $wsfunction . 'Response';
-                $res             = json_decode($getAddressResponse->$functionResultName->children($ns['m'])->return, true);
+
+                $responseString     = (string)$getAddressResponse->$functionResultName->children($ns['m'])->return;
+                $responseString     = str_replace('\\', '', $responseString);
+                $res                = json_decode($responseString, true);
+
                 if(is_array($res)){
                     $result = $res;
                 }

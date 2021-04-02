@@ -37,12 +37,11 @@ if(!$settings){
 $logger  = new Logger($settings);
 $settings['logger'] = $logger;
 
-$phone    = $argv[2]??'79032147962';
-$did      = $argv[3]??'79257184255';
+$phone    = $argv[2]??'79621753111';
+$did      = $argv[3]??'74832320330';
 $linkedid = 'test-linkedid-'.time();
 
 print_r(UtilFunctions::getExtensionStatus('201', $settings));
-
 
 echo("-----------------------". PHP_EOL);
 echo("Start SOAP request to CRM.". PHP_EOL);
@@ -66,6 +65,37 @@ if(file_exists($filename)){
 }
 echo("Result - {$result}". PHP_EOL);
 echo("-----------------------". PHP_EOL);
+
+
+$dst      = '100001';
+$filename = $tts->Synthesize(explode('|', 'Сотрудник занят'), $settings['ya-voice']);
+// $agi->exec('Playback', $filename);
+$ttsDir   = $settings['tts-dir']??'';
+$mohClass = "moh-{$did}";
+$mohDir   = "{$ttsDir}{$did}/{$dst}";
+$srcFile  = "{$filename}.wav";
+$dstFile  = "{$mohDir}/".basename($srcFile);
+
+if(file_exists($srcFile)) {
+    exec("/usr/bin/mkdir -p {$mohDir}");
+    exec("/usr/bin/cp {$srcFile} {$dstFile}");
+}
+// Добавим MOH class
+$mohConfig = '/etc/asterisk/musiconhold_miko_custom.conf';
+$mohCfgData= '';
+if(file_exists($mohConfig)){
+    $mohCfgData = file_get_contents($mohConfig);
+}
+if(strpos("", "[$mohClass]") === FALSE){
+    $mohCfgData = PHP_EOL.
+        "[$mohClass]". PHP_EOL.
+        'mode=files'. PHP_EOL.
+        "directory={$mohDir}";
+    file_put_contents($mohConfig, $mohCfgData);
+    exec("/usr/sbin/asterisk -rx 'moh reload'");
+}
+
+
 //**/
 
 /**

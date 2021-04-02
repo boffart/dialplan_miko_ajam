@@ -37,6 +37,7 @@ $agi->exec('Ringing', '');
 $agi->set_variable('AGIEXITONHANGUP', 'yes');
 $agi->set_variable('AGISIGHUP', 'yes');
 $agi->set_variable('__ENDCALLONANSWER', 'yes');
+$agi->set_variable('MIKO_SMART_IVR_OK', '0');
 
 $did      = $agi->get_variable('FROM_DID',     true);
 if(empty($did)){
@@ -49,14 +50,11 @@ try{
     $settings = UtilFunctions::overrideConfigurationArray($settings, $ivr_data);
 }catch (Exception $e){
     $ivr_data = false;
-    $agi->set_variable('M_IVR_FAIL_DST', $settings['fail_dst']);
     exit(0);
 }
 
 if(!$ivr_data){
-    $logger->write('Go to M_IVR_FAIL_DST : '.$settings['fail_dst']."\n", LOG_NOTICE);
     $logger->write(''.print_r($ivr_data, true)."\n", LOG_NOTICE);
-    $agi->set_variable('M_IVR_FAIL_DST', $settings['fail_dst']);
     exit(0);
 }
 
@@ -72,8 +70,6 @@ if(empty($voice)){
     $voice    = $settings[$serviceTTS.'-voice']??'';
 }
 $agi->Answer();
-$agi->set_variable('MIKO_SMART_IVR_OK', '0');
-
 $filename = $tts->Synthesize(explode('|', $ivr_data['greeting-text']??''), $voice).".wav";
 if(!file_exists($filename)){
     $logger->write("Ошибка при генерации речи. Файл не был создан. \n", LOG_NOTICE);
@@ -126,7 +122,6 @@ if(!empty($responsibleNumber)){
     // Есть возможность набрать добавочный.
     $result = $agi->get_data($filename, $timeoutWaiting, 3);
     $selectedNum = $result['result']??'';
-    $agi->set_variable('MIKO_SMART_IVR_OK', '1');
     $state = UtilFunctions::getExtensionStatus($selectedNum, $settings);
     $agi->noop("stateSelected -> {$state['extension-status']} selectedNum -> {$selectedNum}");
     if($state['extension-status'] >= 0) {
@@ -136,10 +131,44 @@ if(!empty($responsibleNumber)){
 }
 
 if($dstBusy === true){
-    $filename = $tts->Synthesize(explode('|', $ivr_data['busy-text']??''), $voice);
-    $agi->exec('Playback', $filename);
-    $agi->set_variable('MIKO_SMART_IVR_OK', '0');
-    exit(0);
+    $agi->noop("user {$dst} is busy...");
+    $agi->noop("Busy text '{$ivr_data['busy-text']}'");
+    $filename = $tts->Synthesize(explode('|', $ivr_data['busy-text']), $settings['ya-voice']);
+
+    $ttsDir   = $settings['tts-dir']??'';
+    $mohClass = "moh-{$did}-{$dst}";
+    $mohDir   = "{$ttsDir}{$did}/{$dst}";
+    $srcFile  = "{$filename}.wav";
+    $dstFile  = "{$mohDir}/main.wav"; // .basename($srcFile);
+
+    if(file_exists($srcFile)) {
+        @exec("/usr/bin/mkdir -p {$mohDir}");
+        @exec("/usr/bin/cp {$srcFile} {$dstFile}");
+    }else{
+        $agi->noop("Src file {$srcFile} not found...");
+    }
+    // Добавим MOH class
+    $mohConfig = '/etc/asterisk/musiconhold_miko_custom.conf';
+    $mohCfgData= '';
+    if(file_exists($mohConfig)){
+        $mohCfgData = file_get_contents($mohConfig);
+    }
+    if(strpos($mohCfgData, "[$mohClass]") === FALSE){
+        $mohCfgData.= PHP_EOL.
+            "[$mohClass]". PHP_EOL.
+            'mode=files'. PHP_EOL.
+            "directory={$mohDir}";
+        file_put_contents($mohConfig, $mohCfgData);
+        @exec("/usr/sbin/asterisk -rx 'moh reload'");
+    }else{
+        $agi->noop("Moh clas {$mohClass} exists...");
+    }
+
+    if(file_exists($dstFile)){
+        $agi->set_variable('MIKO_MOH_CLASS', $mohClass);
+    }else{
+        $agi->noop("Dst file {$dstFile} no found...");
+    }
 }
 
 if(!empty($dst)){
