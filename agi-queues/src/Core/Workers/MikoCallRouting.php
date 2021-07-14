@@ -26,6 +26,7 @@ use mysqli;
 class MikoCallRouting{
 
     private $timeout = 10;
+    private $ringing = true;
     private $maxwait = 60;
     private $db;
     private $failOverDest = '';
@@ -62,7 +63,7 @@ class MikoCallRouting{
         if(!$this->db){
             return;
         }
-        $sql    = "select dest,maxwait from ".$settingsQueue["AMPDBNAME"].".queues_config WHERE extension='".$settingsQueue["QUEUE_NUMBER"]."';";
+        $sql    = "select dest,maxwait,ringing from ".$settingsQueue["AMPDBNAME"].".queues_config WHERE extension='".$settingsQueue["QUEUE_NUMBER"]."';";
         $result = mysqli_query($this->db, $sql);
         if(!$result){
             return;
@@ -70,6 +71,7 @@ class MikoCallRouting{
         while ($row = $result->fetch_assoc()) {
             $this->failOverDest = $row['dest'];
             $this->maxwait      = $row['maxwait'];
+            $this->ringing      = ($row['ringing'] === "2");
         }
     }
 
@@ -115,10 +117,15 @@ class MikoCallRouting{
 
         $timeStart = time();
         $this->agi = new AGI();
-        $this->agi->exec('Ringing', '');
-        $this->agi->exec('NoCDR', '');
         $this->context     = $this->agi->get_variable('VMX_CONTEXT', true);
         $this->dialOptions = $this->agi->get_variable('TRUNK_OPTIONS', true);
+
+        $this->agi->exec('NoCDR', '');
+        $this->agi->exec('Ringing', '');
+        if(!$this->ringing) {
+            $this->agi->exec('Answer', '');
+            $this->dialOptions .= 'm(default)';
+        }
         $status = '';
         while ($status !== 'ANSWER'){
             if($this->maxwait > 0 &&  (time() - $timeStart)>$this->maxwait) {
