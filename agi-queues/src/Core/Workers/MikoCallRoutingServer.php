@@ -21,37 +21,67 @@ namespace MikoPBX\Core\Workers;
 use MikoPBX\Core\System\BeanstalkClient;
 use mysqli;
 
-class MikoCallRoutingServer{
+class MikoCallRoutingServer
+{
     const   PROCESS_NAME = 'miko-queue-router-server';
     private $dumpFileName;
+    private $dumpHintFileName;
     private $db;
     private $agents = [];
-    private $refrashTime    = 60;
-    private $lastUpdate     = 0;
-    private $debug          = true;
+    private $refrashTime = 60;
+    private $lastUpdate = 0;
+    private $debug = true;
     private $queueAgent;
-    private $needRestart    = false;
+    private $needRestart = false;
+    private $retryTimeout = 3;
 
     public function __construct()
     {
         global $settingsQueue;
-        $this->dumpFileName = __DIR__.'/../../../agents.dump';
-        if(isset($settingsQueue["DEBUG"])){
+        $this->dumpFileName = __DIR__ . '/../../../agents.dump';
+        $this->dumpHintFileName = __DIR__ . '/../../../hints.dump';
+        if (isset($settingsQueue["DEBUG"])) {
             $this->debug = ($settingsQueue["DEBUG"] === '1');
         }
         $this->reStoreAgents();
         $this->initDb();
         $this->initAgents();
+        $this->initTimeout();
         $this->initQueueAgent();
+    }
+
+    /**
+     * Получения длительности звонка агенту очереди.
+     */
+    private function initTimeout()
+    {
+        global $settingsQueue;
+        if (!$this->db) {
+            return;
+        }
+        $sql = "SELECT keyword,data FROM " . $settingsQueue["AMPDBNAME"] . ".queues_details WHERE id='" . $settingsQueue["QUEUE_NUMBER"] . "' AND keyword IN ('retry','timeout','music');";
+        $result = mysqli_query($this->db, $sql);
+        if (!$result) {
+            return;
+        }
+        $retryTimeout = null;
+        while ($row = $result->fetch_assoc()) {
+            if ('retry' === $row['keyword']) {
+                $retryTimeout = $row['data'];
+            }
+        }
+        if (is_numeric($retryTimeout) && $retryTimeout >= 0) {
+            $this->retryTimeout = $retryTimeout;
+        }
     }
 
     public static function getPidOfProcess()
     {
-        $path_ps   = 'ps';
+        $path_ps = 'ps';
         $path_grep = 'grep';
-        $path_awk  = 'awk';
+        $path_awk = 'awk';
 
-        $name       = addslashes(self::PROCESS_NAME);
+        $name = addslashes(self::PROCESS_NAME);
         $filter_cmd = '';
         $out = [];
         $command = "{$path_ps} -A -o 'pid,args' {$filter_cmd} | {$path_grep} '{$name}' | {$path_grep} -v grep | {$path_awk} ' {print $1} '";
@@ -70,12 +100,13 @@ class MikoCallRoutingServer{
     /**
      * Восстановление таблицы агентов.
      */
-    private function reStoreAgents(){
-        if(!file_exists($this->dumpFileName)){
+    private function reStoreAgents()
+    {
+        if (!file_exists($this->dumpFileName)) {
             return;
         }
-        $data = json_decode(file_get_contents($this->dumpFileName),true);
-        if(is_array($data)){
+        $data = json_decode(file_get_contents($this->dumpFileName), true);
+        if (is_array($data)) {
             $this->agents = $data;
         }
     }
@@ -86,7 +117,7 @@ class MikoCallRoutingServer{
     private function initQueueAgent()
     {
         $this->queueAgent = new BeanstalkClient('MikoCallRoutingRequest');
-        $this->queueAgent->subscribe('MikoCallRoutingRequest',      [$this, 'onMikoCallRoutingRequest']);
+        $this->queueAgent->subscribe('MikoCallRoutingRequest', [$this, 'onMikoCallRoutingRequest']);
         $this->queueAgent->subscribe('MikoCallRoutingChangeStatus', [$this, 'onMikoCallRoutingChangeStatus']);
         $this->queueAgent->setErrorHandler([$this, 'errorHandler']);
     }
@@ -95,12 +126,13 @@ class MikoCallRoutingServer{
      * Вывод отладочных сообщений.
      * @param $data
      */
-    private function verbose($data){
-        if(!$this->debug){
+    private function verbose($data)
+    {
+        if (!$this->debug) {
             return;
         }
-        if(is_string($data)){
-            $data.=PHP_EOL;
+        if (is_string($data)) {
+            $data .= PHP_EOL;
         }
         $message = print_r($data, true);
         echo $message;
@@ -112,36 +144,82 @@ class MikoCallRoutingServer{
     private function initAgents()
     {
         global $settingsQueue;
-        if(!$this->db){
+        if (!$this->db) {
             return;
         }
-        $sql    = "SELECT data FROM ".$settingsQueue['AMPDBNAME'].".queues_details WHERE id='".$settingsQueue['QUEUE_NUMBER']."' AND keyword='member';";
+        $sql = "SELECT data FROM " . $settingsQueue['AMPDBNAME'] . ".queues_details WHERE id='" . $settingsQueue['QUEUE_NUMBER'] . "' AND keyword='member';";
         $result = mysqli_query($this->db, $sql);
-        $now    = microtime(true);
         while ($row = $result->fetch_assoc()) {
-            $agent      = $row['data'];
-            $posStart   = strpos($agent, '/')+1;
-            $posEnd     = strpos($agent, '@');
-            if($posEnd === false){
+            $agent = $row['data'];
+            $posStart = strpos($agent, '/') + 1;
+            $posEnd = strpos($agent, '@');
+            if ($posEnd === false) {
                 $posEnd = strpos($agent, ',');
             }
             $offset = $posEnd - $posStart;
 
-            $number         = substr($agent, $posStart, $offset);
-            if(isset($this->agents[$number])){
+            $number = substr($agent, $posStart, $offset);
+            if (isset($this->agents[$number])) {
                 continue;
             }
             $this->agents[$number] = [
-                'idle' => false,
-                'end-last-call' => $now,
+                'idle' => false,        // hint
+                'user-idle' => true,   // AstDB
+                'end-last-call' => 0,
                 'number' => $number,
-                'penalty' => $now
+                'penalty' => 0,
             ];
         }
         $this->updateStatuses();
         $this->lastUpdate = time();
-
         $this->dumpAgents();
+    }
+
+    function updateStatusesAstDb()
+    {
+        global $settingsQueue;
+        $filename = $settingsQueue["ASTDBPATH"];
+        if(!file_exists($filename)){
+            $this->updateStatusesAstDbCLI();
+            return;
+        }
+        $db = new \SQLite3($filename);
+        $db->busyTimeout(500);
+        $db->enableExceptions(true);
+        try {
+            $results = $db->query('SELECT * FROM astdb WHERE key LIKE "/UserBuddyStatus/%"');
+            while ($row = $results->fetchArray(SQLITE3_ASSOC)) {
+                $number = substr($row['key'], strrpos($row['key'], '/') + 1);
+                if(isset($this->agents[$number])){
+                    $this->agents[$number]['user-idle'] = ('0' === $row['value']);
+                }
+            }
+        } catch (\Exception $e) {
+            $this->verbose('Caught exception: ' . $e->getMessage());
+            $this->updateStatusesAstDbCLI();
+        }
+        $db->close();
+    }
+
+    function updateStatusesAstDbCLI()
+    {
+        $out = [];
+        exec("asterisk -rx 'database show UserBuddyStatus' | awk -F ':' '{ print $1 \"@.@\" $2 }'", $out);
+        foreach ($out as $data){
+            $row_data = explode('@.@', $data);
+            if(count($row_data) <2){
+                // Битая строка.
+                continue;
+            }
+            $key    = trim($row_data[0]);
+            $number = substr($key, strrpos($key, '/') + 1);
+            if(!is_numeric($number)){
+                continue;
+            }
+            if(isset($this->agents[$number])){
+                $this->agents[$number]['user-idle'] = ('0' === trim($row_data[1]));
+            }
+        }
     }
 
     /**
@@ -150,8 +228,8 @@ class MikoCallRoutingServer{
     function updateStatuses()
     {
         $out = [];
-        $context = 'ext-local';
-        exec("asterisk -rx\"core show hints\" | grep -v '^_' | grep '{$context}' | awk -F'([ ]*[:]?[ ]+)|@' ' {print $1 \"@.@\" $3 \"@.@\" $4 } '", $out);
+        $hints = [];
+        exec("asterisk -rx'core show hints' | grep -v '^_' | grep 'ext-local' | awk -F'([ ]*[:]?[ ]+)|@' ' {print $1 \"@.@\" $3 \"@.@\" $4 } '", $out);
         foreach ($out as $hint_row){
             if(strpos($hint_row, '*') === 0){
                 // Старкоды отсекаем.
@@ -171,13 +249,15 @@ class MikoCallRoutingServer{
                 // Этот хинт не относится к очереди.
                 continue;
             }
+            $hints[] = $row_data;
             $state = false;
             if('State:Idle' === $row_data[2]){
                 $state = true;
             }
             $this->agents[$row_data[0]]['idle'] = $state;
         }
-
+        file_put_contents($this->dumpHintFileName, json_encode($hints, JSON_PRETTY_PRINT));
+        $this->updateStatusesAstDb();
     }
     function normalizeHint(&$str){
         $hint_val = '';
@@ -272,7 +352,7 @@ class MikoCallRoutingServer{
         $this->updateStatuses();
         $resultAgent = [];
         foreach ($this->agents as $agent){
-            if($agent['idle'] !== true){
+            if($agent['idle'] !== true || $agent['"user-idle"'] !== true){
                 continue;
             }
             if(empty($resultAgent)){
@@ -283,6 +363,12 @@ class MikoCallRoutingServer{
                 $resultAgent = $agent;
             }
         }
+        if($resultAgent !== [] && $this->retryTimeout > (time() - $resultAgent['end-last-call']) ){
+            // Повторный вызов должен пройти только спустя время таймаута.
+            $this->verbose('Waiting timout...');
+            $resultAgent = [];
+        }
+
         if(!empty($resultAgent)){
             $numberAgent = $resultAgent['number'];
             $this->agents[$numberAgent]['end-last-call'] = microtime(true);

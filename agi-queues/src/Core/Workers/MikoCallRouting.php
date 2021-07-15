@@ -25,7 +25,9 @@ use mysqli;
 
 class MikoCallRouting{
 
-    private $timeout = 10;
+    private $timeout      = 10;
+    private $mohClass     = 'default';
+
     private $ringing = true;
     private $maxwait = 60;
     private $db;
@@ -36,6 +38,7 @@ class MikoCallRouting{
 
     private $queueAgent;
     private $PID;
+
 
     /**
      * MikoCallRouting constructor.
@@ -84,13 +87,17 @@ class MikoCallRouting{
         if(!$this->db){
             return;
         }
-        $sql    = "SELECT data FROM ".$settingsQueue["AMPDBNAME"].".queues_details WHERE id='".$settingsQueue["QUEUE_NUMBER"]."' AND keyword='timeout';";
+        $sql    = "SELECT keyword,data FROM ".$settingsQueue["AMPDBNAME"].".queues_details WHERE id='".$settingsQueue["QUEUE_NUMBER"]."' keyword IN ('retry','timeout','music');";
         $result = mysqli_query($this->db, $sql);
         if(!$result){
             return;
         }
         while ($row = $result->fetch_assoc()) {
-            $this->timeout = $row['data'];
+            if('timeout' === $row['keyword']){
+                $this->timeout = $row['data'];
+            }elseif ('music' === $row['keyword']){
+                $this->mohClass = $row['data'];
+            }
         }
     }
 
@@ -124,7 +131,7 @@ class MikoCallRouting{
         $this->agi->exec('Ringing', '');
         if(!$this->ringing) {
             $this->agi->exec('Answer', '');
-            $this->dialOptions .= 'm(default)';
+            $this->dialOptions .= 'm('.$this->mohClass.')';
         }
         $status = '';
         while ($status !== 'ANSWER'){

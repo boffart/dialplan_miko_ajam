@@ -25,6 +25,7 @@ $settingsQueue["AMPDBNAME"]     = "asterisk";
 $settingsQueue["AMIUSER"]       = "cxpanel";
 $settingsQueue["AMIPASSORD"]    = "cxmanager*con";
 $settingsQueue["AMIHOST"]       = "127.0.0.1";
+$settingsQueue["ASTDBPATH"]     = "/var/lib/asterisk/astdb.sqlite3";
 
 $settingsQueue["QUEUE_NUMBER"]  = "90000999";
 $settingsQueue["DEBUG"]  = "1";

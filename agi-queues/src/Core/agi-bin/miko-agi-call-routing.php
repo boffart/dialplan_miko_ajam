@@ -19,16 +19,10 @@
  */
 namespace MikoPBX\Core\Bin;
 use MikoPBX\Core\Workers\MikoCallRouting;
-use MikoPBX\Core\Workers\MikoCallRoutingServer;
 
 require_once __DIR__.'/../../../vendor/autoload.php';
 require_once __DIR__.'/../../../settings.php';
-//  php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/miko-agi-call-routing.php
-//$activeProcesses = MikoCallRoutingServer::getPidOfProcess();
-//if(count($activeProcesses) === 0){
-//    $binPath = __DIR__."/../Bin/miko-queue-router.php";
-//    exec("nohup php -f {$binPath} start 2>&1 &");
-//    usleep(500000);
-//}
+
+
 $callRouting = new MikoCallRouting();
 $callRouting->start();
