@@ -8,6 +8,14 @@ chown -R asterisk:asterisk /usr/src/dialplan-miko-ajam
 # Предоставим права на исполонение:
 chmode +x /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/*.php
 
+ln -s /usr/src/dialplan-miko-ajam/agi-queues/miko-queues /var/www/html/miko-queues;
+chown asterisk:asterisk /var/www/html/miko-queues;
+# Создать файл /var/www/html/miko-queues/index.php
+
+# Проверка
+curl -L 'http://192.168.0.17/miko-queues'
+# должна вернуть JSON
+
 # Установить beanstalk
 yum install beanstalkd;
 systemctl enable beanstalkd;
@@ -49,3 +57,4 @@ Target: miko-custom-call-routing,${EXTEN},1
 Description: MikoCustomCallrouting
 
 # Перенаправить Inbound Rout на созданный ранее Custom Destination (MikoCustomCallrouting).
+# Протестировать работу очереди.
