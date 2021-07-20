@@ -17,15 +17,20 @@
  * If not, see <https://www.gnu.org/licenses/>.
  */
 
+// Параметры доступа к MySQL (см. /etc/freepbx.conf).
 $settingsQueue["AMPDBUSER"]     = "freepbxuser";
 $settingsQueue["AMPDBPASS"]     = "Kv7sEPi8Q1fJ";
 $settingsQueue["AMPDBHOST"]     = "127.0.0.1";
 $settingsQueue["AMPDBNAME"]     = "asterisk";
 
+// Параметры доступа к AMI (см. /etc/asterisk/manager_additional.conf)
 $settingsQueue["AMIUSER"]       = "cxpanel";
 $settingsQueue["AMIPASSORD"]    = "cxmanager*con";
 $settingsQueue["AMIHOST"]       = "127.0.0.1";
 $settingsQueue["ASTDBPATH"]     = "/var/lib/asterisk/astdb.sqlite3";
 
+// Номер очереди.
 $settingsQueue["QUEUE_NUMBER"]  = "90000999";
-$settingsQueue["DEBUG"]  = "1";
+
+// Режим отладки. 
+$settingsQueue["DEBUG"]  = "0";
