@@ -28,7 +28,7 @@ class BeanstalkClient
     /** @var Pheanstalk */
     private $queue;
     private $connected = false;
-    private $subscriptions = [];
+    private $subscriptions = array();
     private $tube;
     private $reconnectsCount = 0;
     private $message;
@@ -104,10 +104,10 @@ class BeanstalkClient
         $this->queue->watch($inbox_tube);
 
         // Send message to backend worker
-        $requestMessage = [
+        $requestMessage = array(
             $job_data,
             'inbox_tube' => $inbox_tube,
-        ];
+        );
         $this->publish($requestMessage, null, $priority, 0, $timeout);
 
         // We wait until a worker process request.
@@ -168,7 +168,7 @@ class BeanstalkClient
     public function cleanTubes()
     {
         $tubes          = $this->queue->listTubes();
-        $deletedJobInfo = [];
+        $deletedJobInfo = array();
         foreach ($tubes as $tube) {
             try {
                 $this->queue->useTube($tube);
@@ -276,7 +276,7 @@ class BeanstalkClient
                 }
                 // Removes the job from the queue when it has been successfully completed
                 $this->queue->delete($job);
-            } catch (Throwable $e) {
+            } catch (\Throwable $e) {
                 // Marks the job as terminally failed and no workers will restart it.
                 $this->queue->bury($job);
                 Util::sysLogMsg(__METHOD__ . '_EXCEPTION', $e->getMessage(), LOG_ERR);
@@ -354,12 +354,12 @@ class BeanstalkClient
         if ($tube !== '') {
             $this->queue->useTube($tube);
         }
-        $arrayOfMessages = [];
+        $arrayOfMessages = array();
         while ($job = $this->queue->peekReady()) {
             if (json_decode($job->getData(), true) !== null) {
                 $mData = $job->getData();
             } else {
-                $mData = unserialize($job->getData(), [false]);
+                $mData = unserialize($job->getData(), array(false));
             }
             $arrayOfMessages[] = $mData;
             $this->queue->delete($job);

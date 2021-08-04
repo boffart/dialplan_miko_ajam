@@ -23,7 +23,6 @@ use MikoPBX\Core\Workers\MikoCallRoutingServer;
 require_once __DIR__.'/../../../vendor/autoload.php';
 require_once __DIR__.'/../../../settings.php';
 // php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/Bin/miko-queue-router.php start
-
 if(isset($argv[1]) && ($argv[1] === 'start' || $argv[1] === 'restart')){
     $activeProcesses = MikoCallRoutingServer::getPidOfProcess();
     if(count($activeProcesses) > 0){

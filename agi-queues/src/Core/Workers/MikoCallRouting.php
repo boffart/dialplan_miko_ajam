@@ -157,10 +157,10 @@ class MikoCallRouting{
      */
     public function getNextAgent()
     {
-        $request= [
+        $request= array(
             'Action'   => 'GetNextAgent',
             'ActionID' => $this->PID
-        ];
+        );
         $data   = $this->queueAgent->request($request, 2);
         $result = json_decode($data, true);
         if(isset($result['Agent']) > 0 && !empty($result['Agent'])){
@@ -175,19 +175,19 @@ class MikoCallRouting{
      * @param $status
      */
     public function changeStatus($dst, $status){
-        $data = [
+        $data = array(
             'DIALSTATUS' => $status,
             'DST' => $dst,
             'TIME' => microtime(true)
-        ];
+        );
         $this->queueAgent->publish($data, 'MikoCallRoutingChangeStatus', 2);
     }
 
     public function getListAgents()
     {
-        $request= [
+        $request= array(
             'Action'   => 'ListAgents'
-        ];
+        );
         $data   = $this->queueAgent->request($request, 2);
         return json_decode($data, true);
     }

@@ -1,25 +1,31 @@
 
 # Скачать архив https://codeload.github.com/boffart/dialplan_miko_ajam/zip/refs/heads/master
+cd /usr/src
+curl -L -o 'dialplan_miko_ajam-master.zip' 'https://codeload.github.com/boffart/dialplan_miko_ajam/zip/refs/heads/master'
+unzip dialplan_miko_ajam-master.zip
 # Разместить исходники в каталоге:
-mkdir -p /usr/src/dialplan-miko-ajam
+mv /usr/src/dialplan_miko_ajam-master /usr/src/dialplan-miko-ajam
 
 # Сменить владельца каталога
 chown -R asterisk:asterisk /usr/src/dialplan-miko-ajam
 # Предоставим права на исполонение:
-chmode +x /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/*.php
+chmod +x /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/*.php
 
 ln -s /usr/src/dialplan-miko-ajam/agi-queues/miko-queues /var/www/html/miko-queues;
 chown asterisk:asterisk /var/www/html/miko-queues;
 # Создать файл /var/www/html/miko-queues/index.php
 
 # Проверка
-curl -L 'http://192.168.0.17/miko-queues'
+curl -L 'http://127.0.0.1/miko-queues'
 # должна вернуть JSON
 
 # Установить beanstalk
-yum install beanstalkd;
-systemctl enable beanstalkd;
-systemctl start beanstalkd;
+curl -O -L 'https://github.com/beanstalkd/beanstalkd/archive/refs/tags/v1.12.tar.gz'
+tar xzf v1.12.tar.gz
+rm -rf v1.12.tar.gz
+cd beanstalkd-1.12/
+make
+cp beanstalkd /usr/bin/beanstalkd
 
 # Задача для cron (пользорватель asterisk)
 crontab -u asterisk -e;
