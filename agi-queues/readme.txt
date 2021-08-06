@@ -1,24 +1,4 @@
 
-# Скачать архив https://codeload.github.com/boffart/dialplan_miko_ajam/zip/refs/heads/master
-cd /usr/src
-curl -L -o 'dialplan_miko_ajam-master.zip' 'https://codeload.github.com/boffart/dialplan_miko_ajam/zip/refs/heads/master'
-unzip dialplan_miko_ajam-master.zip
-# Разместить исходники в каталоге:
-mv /usr/src/dialplan_miko_ajam-master /usr/src/dialplan-miko-ajam
-
-# Сменить владельца каталога
-chown -R asterisk:asterisk /usr/src/dialplan-miko-ajam
-# Предоставим права на исполонение:
-chmod +x /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/*.php
-
-ln -s /usr/src/dialplan-miko-ajam/agi-queues/miko-queues /var/www/html/miko-queues;
-chown asterisk:asterisk /var/www/html/miko-queues;
-# Создать файл /var/www/html/miko-queues/index.php
-
-# Проверка
-curl -L 'http://127.0.0.1/miko-queues'
-# должна вернуть JSON
-
 # Установить beanstalk
 curl -O -L 'https://github.com/beanstalkd/beanstalkd/archive/refs/tags/v1.12.tar.gz'
 tar xzf v1.12.tar.gz
@@ -27,10 +7,31 @@ cd beanstalkd-1.12/
 make
 cp beanstalkd /usr/bin/beanstalkd
 
+# Скачать архив https://codeload.github.com/boffart/dialplan_miko_ajam/zip/refs/heads/master
+cd /usr/src
+curl -L -o 'dialplan_miko_ajam-master.zip' 'https://codeload.github.com/boffart/dialplan_miko_ajam/zip/refs/heads/master'
+unzip dialplan_miko_ajam-master.zip
+# Разместить исходники в каталоге:
+mv /usr/src/dialplan_miko_ajam-master /usr/src/dialplan-miko-ajam
+rm -rf dialplan_miko_ajam-master.zip
+# Сменить владельца каталога
+chown -R asterisk:asterisk /usr/src/dialplan-miko-ajam
+# Предоставим права на исполонение:
+chmod +x /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/*.php
+
+ln -s /usr/src/dialplan-miko-ajam/agi-queues/miko-queues /var/www/html/miko-queues;
+chown asterisk:asterisk /var/www/html/miko-queues;
+
+# Проверка
+curl -L 'http://127.0.0.1/miko-queues'
+# должна вернуть JSON
+
 # Задача для cron (пользорватель asterisk)
 crontab -u asterisk -e;
 # (проверить пути к исполняемым файлам)
 */1 * * * * /usr/bin/nohup /usr/bin/php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/Bin/miko-queue-router.php start 2>&1 > /dev/null
+
+/etc/init.d/crond reload
 
 # Добавить в /etc/asterisk/extensions_custom.conf
 [miko-custom-call-routing]

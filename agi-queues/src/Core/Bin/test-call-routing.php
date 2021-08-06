@@ -1,3 +1,4 @@
+#!/usr/bin/php -q
 <?php
 /*
  * MikoPBX - free phone system for small business
@@ -16,28 +17,23 @@
  * You should have received a copy of the GNU General Public License along with this program.
  * If not, see <https://www.gnu.org/licenses/>.
  */
-
 namespace MikoPBX\Core\Bin;
-use MikoPBX\Core\Workers\MikoCallRoutingServer;
+use MikoPBX\Core\Workers\MikoCallRouting;
 
 require_once __DIR__.'/../../../vendor/autoload.php';
 require_once __DIR__.'/../../../settings.php';
-// php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/Bin/miko-queue-router.php start
-if(isset($argv[1]) && ($argv[1] === 'start' || $argv[1] === 'restart')){
 
-    $activeBeanstalk = MikoCallRoutingServer::getPidOfProcess('beanstalkd');
-    if(count($activeBeanstalk) === 0){
-        exec("/usr/bin/nohup /usr/bin/beanstalkd -l 127.0.0.1 -p 11300 2>&1 &");
-    }
-    $activeProcesses = MikoCallRoutingServer::getPidOfProcess();
-    if(count($activeProcesses) > 0){
-        if($argv[1] === 'restart'){
-            exec("kill ".implode(' ', $activeProcesses)." 2>&1");
-        }else{
-            echo 'Found process '. implode(',', $activeProcesses).'. My PID: '.getmypid().'. My PPID: '.posix_getppid();
-            exit(1);
-        }
-    }
-    $server = new MikoCallRoutingServer();
-    $server->start();
-}
+
+$callRouting = new MikoCallRouting();
+$list = $callRouting->getListAgents();
+
+echo "------------------------ \n";
+echo "List Agents: \n";
+print_r($list);
+echo "------------------------ \n\n";
+
+echo "------------------------ \n";
+echo "Next Agents: \n";
+$next = $callRouting->getNextAgent();
+print_r($next);
+echo "------------------------ \n";

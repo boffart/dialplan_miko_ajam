@@ -26,6 +26,7 @@ class MikoCallRoutingServer
     const   PROCESS_NAME = 'miko-queue-router';
     private $dumpFileName;
     private $dumpHintFileName;
+    private $logFileName;
     private $db;
     private $agents = array();
     private $refrashTime = 60;
@@ -40,6 +41,7 @@ class MikoCallRoutingServer
         global $settingsQueue;
         $this->dumpFileName = __DIR__ . '/../../../agents.dump';
         $this->dumpHintFileName = __DIR__ . '/../../../hints.dump';
+        $this->logFileName = __DIR__ . '/../../../full.log';
         if (isset($settingsQueue["DEBUG"])) {
             $this->debug = ($settingsQueue["DEBUG"] === '1');
         }
@@ -75,16 +77,17 @@ class MikoCallRoutingServer
         }
     }
 
-    public static function getPidOfProcess()
+    public static function getPidOfProcess($name='')
     {
         $path_ps = 'ps';
         $path_grep = 'grep';
         $path_awk = 'awk';
-
-        $name = addslashes(self::PROCESS_NAME);
-        $filter_cmd = '';
+        if(empty($name)){
+            $name = addslashes(self::PROCESS_NAME);
+        }
+        $filter_cmd = "| {$path_grep} -v ".getmypid()." | {$path_grep} -v ".posix_getppid();
         $out = array();
-        $command = "{$path_ps} -A -o 'pid,args' {$filter_cmd} | {$path_grep} '{$name}' | {$path_grep} -v grep | {$path_awk} ' {print $1} '";
+        $command = "{$path_ps} -A -o 'pid,args' {$filter_cmd} | {$path_grep} '{$name}' | {$path_grep} -v grep | {$path_grep} -v /bin/sh | {$path_awk} ' {print $1} '";
         exec("$command 2>&1", $out);
         return $out;
     }
@@ -135,7 +138,7 @@ class MikoCallRoutingServer
             $data .= PHP_EOL;
         }
         $message = print_r($data, true);
-        echo $message;
+        file_put_contents($this->logFileName, $message, FILE_APPEND);
     }
 
     /**
@@ -204,7 +207,7 @@ class MikoCallRoutingServer
     function updateStatusesAstDbCLI()
     {
         $out = array();
-        exec("asterisk -rx 'database show UserBuddyStatus' | awk -F ':' '{ print $1 \"@.@\" $2 }'", $out);
+        exec("/usr/sbin/asterisk -rx 'database show UserBuddyStatus' | /bin/awk -F ':' '{ print $1 \"@.@\" $2 }'", $out);
         foreach ($out as $data){
             $row_data = explode('@.@', $data);
             if(count($row_data) <2){
@@ -227,9 +230,9 @@ class MikoCallRoutingServer
      */
     function updateStatuses()
     {
-        $out = array();
-        $hints = array();
-        exec("asterisk -rx'core show hints' | grep -v '^_' | grep 'ext-local' | awk -F'([ ]*[:]?[ ]+)|@' ' {print $1 \"@.@\" $3 \"@.@\" $4 } '", $out);
+        $out    = array();
+        $hints  = array();
+        exec("/usr/sbin/asterisk -rx'core show hints' | /bin/grep -v '^_' | /bin/grep 'ext-local' | /bin/awk -F'([ ]*[:]?[ ]+)|@' ' {print $1 \"@.@\" $3 \"@.@\" $4 } '", $out);
         foreach ($out as $hint_row){
             if(strpos($hint_row, '*') === 0){
                 // Старкоды отсекаем.
@@ -318,8 +321,9 @@ class MikoCallRoutingServer
             $this->initAgents();
         }
         if($data['Action'] === 'GetNextAgent'){
+            $this->verbose("Start getNextAgent ... ");
             $agent = $this->getNextAgent();
-            $this->verbose("Start getNextAgent -> $agent");
+            $this->verbose("Result getNextAgent -> $agent");
             $result = array('Agent' => $agent, 'ActionID' => $data['ActionID']);
         }elseif($data['Action'] === 'ListAgents'){
             $result = $this->agents;
@@ -351,7 +355,7 @@ class MikoCallRoutingServer
         $this->updateStatuses();
         $resultAgent = array();
         foreach ($this->agents as $agent){
-            if($agent['idle'] !== true || $agent['"user-idle"'] !== true){
+            if($agent['idle'] !== true || $agent['user-idle'] !== true){
                 continue;
             }
             if(empty($resultAgent)){
@@ -362,6 +366,7 @@ class MikoCallRoutingServer
                 $resultAgent = $agent;
             }
         }
+
         if($resultAgent !== array() && $this->retryTimeout > (time() - $resultAgent['end-last-call']) ){
             // Повторный вызов должен пройти только спустя время таймаута.
             $this->verbose('Waiting timout...');
