@@ -20,6 +20,8 @@ chown -R asterisk:asterisk /usr/src/dialplan-miko-ajam
 chmod +x /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/*.php
 
 ln -s /usr/src/dialplan-miko-ajam/agi-queues/miko-queues /var/www/html/miko-queues;
+rm -rf /usr/src/dialplan-miko-ajam/agi-queues/miko-queues/index.php;
+ln -s /usr/src/dialplan-miko-ajam/agi-queues/agents.dump /usr/src/dialplan-miko-ajam/agi-queues/miko-queues/index.php
 chown asterisk:asterisk /var/www/html/miko-queues;
 
 # Проверка
