@@ -22,9 +22,11 @@ use MikoPBX\Core\Workers\MikoCallRoutingServer;
 
 require_once __DIR__.'/../../../vendor/autoload.php';
 require_once __DIR__.'/../../../settings.php';
+
+echo date("d/m/Y");
 // php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/Bin/miko-queue-router.php start
 if(isset($argv[1]) && ($argv[1] === 'start' || $argv[1] === 'restart')){
-
+    date_default_timezone_set('Europe/Moscow');
     $activeBeanstalk = MikoCallRoutingServer::getPidOfProcess('beanstalkd');
     if(count($activeBeanstalk) === 0){
         exec("/usr/bin/nohup /usr/bin/beanstalkd -l 127.0.0.1 -p 11300 2>&1 &");

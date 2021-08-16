@@ -253,11 +253,8 @@ class MikoCallRoutingServer
                 continue;
             }
             $hints[] = $row_data;
-            $state = false;
-            if('State:Idle' === $row_data[2]){
-                $state = true;
-            }
-            $this->agents[$row_data[0]]['idle'] = $state;
+            $this->agents[$row_data[0]]['idle']        = ('State:Idle' === $row_data[2]);
+            $this->agents[$row_data[0]]['unavailable'] = ('State:Unavailable' === $row_data[2]);
         }
         file_put_contents($this->dumpHintFileName, json_encode($hints));
         $this->updateStatusesAstDb();
@@ -302,7 +299,9 @@ class MikoCallRoutingServer
         // cli_set_process_title(self::PROCESS_NAME);
         $this->verbose("Start service...");
         while ($this->needRestart === false) {
-            $this->queueAgent->wait();
+            $this->queueAgent->wait(3);
+            $this->updateStatuses();
+            $this->dumpAgents();
         }
     }
 
@@ -373,14 +372,14 @@ class MikoCallRoutingServer
             $resultAgent = array();
         }
 
+        $numberAgent = '';
         if(!empty($resultAgent)){
             $numberAgent = $resultAgent['number'];
             $this->agents[$numberAgent]['end-last-call'] = microtime(true);
             $this->agents[$numberAgent]['penalty']       = $this->agents[$numberAgent]['end-last-call'];
-            return $numberAgent;
         }
-        $this->verbose('After change... ');
+        $this->verbose('Update agents status... ');
         $this->dumpAgents();
-        return '';
+        return $numberAgent;
     }
 }

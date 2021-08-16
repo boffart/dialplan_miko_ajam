@@ -22,6 +22,7 @@ chmod +x /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/*.php
 ln -s /usr/src/dialplan-miko-ajam/agi-queues/miko-queues /var/www/html/miko-queues;
 rm -rf /usr/src/dialplan-miko-ajam/agi-queues/miko-queues/index.php;
 ln -s /usr/src/dialplan-miko-ajam/agi-queues/agents.dump /usr/src/dialplan-miko-ajam/agi-queues/miko-queues/index.php
+# ln -s /usr/src/dialplan-miko-ajam/agi-queues/agents.dump.test /usr/src/dialplan-miko-ajam/agi-queues/miko-queues/index.php
 chown asterisk:asterisk /var/www/html/miko-queues;
 
 # Проверка
@@ -44,6 +45,10 @@ exten => h,1,AGI(/usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/miko-ag
 
 [miko-custom-queue]
 exten => _[0-9*#+a-zA-Z][0-9*#+a-zA-Z]!,1,AGI(/usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/miko-agi-call-routing.php)
+
+[from-internal-custom]
+; Вместо 333 указать УНИКАЛЬНЫЙ номер, для более удобной переадресации на очередь.
+exten => 333,1,Goto(miko-custom-call-routing,${EXTEN},1)
 
 # Создать новую Queues в интерфейсе FreePBX.
 
