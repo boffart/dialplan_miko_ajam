@@ -20,13 +20,16 @@ chown -R asterisk:asterisk /usr/src/dialplan-miko-ajam
 chmod +x /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/*.php
 
 ln -s /usr/src/dialplan-miko-ajam/agi-queues/miko-queues /var/www/html/miko-queues;
+ln -s /usr/src/dialplan-miko-ajam/agi-queues/miko-change-state /var/www/html/miko-change-state;
 rm -rf /usr/src/dialplan-miko-ajam/agi-queues/miko-queues/index.php;
 ln -s /usr/src/dialplan-miko-ajam/agi-queues/agents.dump /usr/src/dialplan-miko-ajam/agi-queues/miko-queues/index.php
+
+
 # ln -s /usr/src/dialplan-miko-ajam/agi-queues/agents.dump.test /usr/src/dialplan-miko-ajam/agi-queues/miko-queues/index.php
 chown asterisk:asterisk /var/www/html/miko-queues;
 
 # Проверка
-curl -L 'http://127.0.0.1/miko-queues'
+curl -L 'http://127.0.0.1/miko-queues/'
 # должна вернуть JSON
 
 # Задача для cron (пользорватель asterisk)
