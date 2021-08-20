@@ -152,6 +152,11 @@ class MikoCallRoutingServer
         }
         $sql = "SELECT data FROM " . $settingsQueue['AMPDBNAME'] . ".queues_details WHERE id='" . $settingsQueue['QUEUE_NUMBER'] . "' AND keyword='member';";
         $result = mysqli_query($this->db, $sql);
+
+        // Сохраняем старый список агентов с отметками времени "penalty" и "end-last-call"
+        $oldData = $this->agents;
+        // Формируем актуальный список агентов.
+        $this->agents = array();
         while ($row = $result->fetch_assoc()) {
             $agent = $row['data'];
             $posStart = strpos($agent, '/') + 1;
@@ -167,12 +172,21 @@ class MikoCallRoutingServer
             }
             $this->agents[$number] = array(
                 'idle' => false,        // hint
-                'user-idle' => true,   // AstDB
+                'user-idle' => true,    // AstDB
                 'end-last-call' => 0,
                 'number' => $number,
                 'penalty' => 0,
             );
         }
+        // Заполняем отметки времени в новом списке агентов.
+        foreach ($oldData as $number => $oldRow){
+            if(!isset($this->agents[$number])){
+                continue;
+            }
+            $this->agents[$number]['end-last-call'] = $oldRow['end-last-call'];
+            $this->agents[$number]['penalty']       = $oldRow['penalty'];
+        }
+        unset($oldData);
         $this->updateStatuses();
         $this->lastUpdate = time();
         $this->dumpAgents();
