@@ -18,28 +18,64 @@
  */
 
 namespace MikoPBX\Core\Bin;
+use MikoPBX\Core\Workers\MikoCallRouting;
 use MikoPBX\Core\Workers\MikoCallRoutingServer;
 
 require_once __DIR__.'/../../../vendor/autoload.php';
 require_once __DIR__.'/../../../settings.php';
 
-echo date("d/m/Y");
-// php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/Bin/miko-queue-router.php start
-if(isset($argv[1]) && ($argv[1] === 'start' || $argv[1] === 'restart')){
-    date_default_timezone_set('Europe/Moscow');
+/**
+ * Executes command exec() as background process.
+ *
+ * @param $command
+ */
+function mwExecBg($command)
+{
+    $noop_command = "/usr/bin/nohup {$command} > /dev/null 2>&1 &";
+    exec($noop_command);
+}
+
+function startBeanstalk()
+{
     $activeBeanstalk = MikoCallRoutingServer::getPidOfProcess('beanstalkd');
     if(count($activeBeanstalk) === 0){
-        exec("/usr/bin/nohup /usr/bin/beanstalkd -l 127.0.0.1 -p 11300 2>&1 &");
+        mwExecBg('/usr/bin/beanstalkd -l 127.0.0.1 -p 11300');
+    }
+}
+// php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/Bin/miko-queue-router.php check
+if( !isset($argv[1]) ){
+    exit(0);
+
+}
+echo "action $argv[1] ...".PHP_EOL;
+if ($argv[1] === 'start'){
+    startBeanstalk();
+    $server = new MikoCallRoutingServer();
+    $server->start();
+}elseif ($argv[1] === 'check'){
+    echo "Starting $argv[1] ...".PHP_EOL;
+    $action = $argv[1];
+    date_default_timezone_set('Europe/Moscow');
+    startBeanstalk();
+    $callRouting = new MikoCallRouting();
+    $list = $callRouting->getListAgents();
+    if(empty($list)){
+        echo 'Need restart workers...'.PHP_EOL;
+        $action = 'restart';
     }
     $activeProcesses = MikoCallRoutingServer::getPidOfProcess();
     if(count($activeProcesses) > 0){
-        if($argv[1] === 'restart'){
-            exec("kill ".implode(' ', $activeProcesses)." 2>&1");
+        if($action === 'restart'){
+            echo 'Kill beanstalkd...'.PHP_EOL;
+            exec("/usr/bin/killall beanstalkd 2>&1");
+            echo 'Kill MikoCallRoutingServer...'.PHP_EOL;
+            exec("/bin/kill ".implode(' ', $activeProcesses)." 2>&1");
         }else{
-            echo 'Found process '. implode(',', $activeProcesses).'. My PID: '.getmypid().'. My PPID: '.posix_getppid();
+            echo 'Found process '. implode(',', $activeProcesses).'. My PID: '.getmypid().'. My PPID: '.posix_getppid().PHP_EOL;
             exit(1);
         }
     }
-    $server = new MikoCallRoutingServer();
-    $server->start();
+
+    echo "Starting $argv[0] ...".PHP_EOL;
+    mwExecBg("/usr/bin/php -f $argv[0] start");
 }

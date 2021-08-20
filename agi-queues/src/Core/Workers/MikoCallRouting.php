@@ -22,6 +22,7 @@ namespace MikoPBX\Core\Workers;
 use MikoPBX\Core\Other\AGI;
 use MikoPBX\Core\System\BeanstalkClient;
 use mysqli;
+use Pheanstalk\Exception;
 
 class MikoCallRouting{
 
@@ -54,7 +55,11 @@ class MikoCallRouting{
      */
     private function initQueueAgent()
     {
-        $this->queueAgent = new BeanstalkClient('MikoCallRoutingRequest');
+        try {
+            $this->queueAgent = new BeanstalkClient('MikoCallRoutingRequest');
+        }catch (Exception $e){
+
+        }
     }
 
     /**
@@ -161,9 +166,13 @@ class MikoCallRouting{
             'Action'   => 'GetNextAgent',
             'ActionID' => $this->PID
         );
-        $data   = $this->queueAgent->request($request, 2);
-        $result = json_decode($data, true);
-        if(isset($result['Agent']) > 0 && !empty($result['Agent'])){
+        try {
+            $data   = $this->queueAgent->request($request, 2);
+            $result = json_decode($data, true);
+        }catch (\Exception $e){
+            $result = '';
+        }
+        if(isset($result['Agent']) && !empty($result['Agent'])){
             return $result['Agent'];
         }
         return '';
@@ -180,7 +189,10 @@ class MikoCallRouting{
             'DST' => $dst,
             'TIME' => microtime(true)
         );
-        $this->queueAgent->publish($data, 'MikoCallRoutingChangeStatus', 2);
+        try {
+            $this->queueAgent->publish($data, 'MikoCallRoutingChangeStatus', 2);
+        }catch (\Exception $e){
+        }
     }
 
     public function getListAgents()
@@ -188,8 +200,15 @@ class MikoCallRouting{
         $request= array(
             'Action'   => 'ListAgents'
         );
-        $data   = $this->queueAgent->request($request, 2);
-        return json_decode($data, true);
+        $result = '';
+        if(isset($this->queueAgent)){
+            try {
+                $data   = $this->queueAgent->request($request, 2);
+                $result = json_decode($data, true);
+            }catch (\Exception $e){
+            }
+        }
+        return $result;
     }
 
     /**

@@ -85,7 +85,7 @@ class MikoCallRoutingServer
         if(empty($name)){
             $name = addslashes(self::PROCESS_NAME);
         }
-        $filter_cmd = "| {$path_grep} -v ".getmypid()." | {$path_grep} -v ".posix_getppid();
+        $filter_cmd = "| {$path_grep} -v ".getmypid()." | {$path_grep} -v ".posix_getppid() ." | {$path_grep} -v check";
         $out = array();
         $command = "{$path_ps} -A -o 'pid,args' {$filter_cmd} | {$path_grep} '{$name}' | {$path_grep} -v grep | {$path_grep} -v /bin/sh | {$path_awk} ' {print $1} '";
         exec("$command 2>&1", $out);

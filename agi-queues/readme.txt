@@ -35,7 +35,7 @@ curl -L 'http://127.0.0.1/miko-queues/'
 # Задача для cron (пользорватель asterisk)
 crontab -u asterisk -e;
 # (проверить пути к исполняемым файлам)
-*/1 * * * * /usr/bin/nohup /usr/bin/php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/Bin/miko-queue-router.php start 2>&1 > /dev/null
+*/1 * * * * /usr/bin/nohup /usr/bin/php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/Bin/miko-queue-router.php check 2>&1 > /dev/null
 
 /etc/init.d/crond reload
 
