@@ -90,14 +90,19 @@ class MikoCallRouting{
     {
         global $settingsQueue;
         if(!$this->db){
+            $this->agi->noop("Fail connect to DB");
             return;
         }
-        $sql    = "SELECT keyword,data FROM ".$settingsQueue["AMPDBNAME"].".queues_details WHERE id='".$settingsQueue["QUEUE_NUMBER"]."' keyword IN ('retry','timeout','music');";
+        $sql    = "SELECT keyword,data FROM ".$settingsQueue["AMPDBNAME"].".queues_details WHERE id='".$settingsQueue["QUEUE_NUMBER"]."' AND keyword IN ('retry','timeout','music');";
         $result = mysqli_query($this->db, $sql);
+
         if(!$result){
+            $this->agi->noop("Fail mysqli_query to DB".$this->db->error);
             return;
         }
         while ($row = $result->fetch_assoc()) {
+            $this->agi->noop($row['keyword']);
+            $this->agi->noop($row['data']);
             if('timeout' === $row['keyword']){
                 $this->timeout = $row['data'];
             }elseif ('music' === $row['keyword']){
@@ -123,24 +128,30 @@ class MikoCallRouting{
      * Начало работы AGI скрипта.
      */
     public function start(){
+        $this->agi = new AGI();
         $this->initDb();
         $this->initTimeout();
         $this->initQueueConf();
 
         $timeStart = time();
-        $this->agi = new AGI();
         $this->context     = $this->agi->get_variable('VMX_CONTEXT', true);
         $this->dialOptions = $this->agi->get_variable('TRUNK_OPTIONS', true);
 
         $this->agi->exec('NoCDR', '');
         $this->agi->exec('Ringing', '');
+
+        $this->agi->set_variable('AGIEXITONHANGUP', 'yes');
+        $this->agi->set_variable('AGISIGHUP', 'yes');
+        $this->agi->set_variable('__ENDCALLONANSWER', 'yes');
+
         if(!$this->ringing) {
             $this->agi->exec('Answer', '');
             $this->dialOptions .= 'm('.$this->mohClass.')';
         }
         $status = '';
         while ($status !== 'ANSWER'){
-            if($this->maxwait > 0 &&  (time() - $timeStart)>$this->maxwait) {
+            $delta = time() - $timeStart;
+            if($this->maxwait > 0 &&  ($delta)>$this->maxwait) {
                 if(empty($this->failOverDest)) {
                     $this->agi->hangup();
                 }else{
@@ -149,6 +160,8 @@ class MikoCallRouting{
                 break;
             }
             $number = $this->getNextAgent();
+            $delta         = time() - $timeStart;
+            $this->timeout = min($this->timeout, ($this->maxwait - $delta));
             if(!empty($number)){
                 $status = $this->dial($number);
             }
@@ -217,7 +230,7 @@ class MikoCallRouting{
      * @return mixed
      */
     private function dial($dst){
-        $this->agi->set_variable('M_DIALEDPEERNUMBER', $dst);
+        $this->agi->set_variable('__M_DIALEDPEERNUMBER', $dst);
         $this->agi->exec_dial('Local', $dst.'@'.$this->context.'/n', $this->timeout, $this->dialOptions);
         $DIAL_STATUS = $this->agi->get_variable('DIALSTATUS', true);
         $this->agi->noop("DIALSTATUS -> $DIAL_STATUS");

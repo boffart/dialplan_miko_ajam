@@ -95,9 +95,20 @@ class MikoCallRoutingServer
     /**
      * Сохраниение таблицы агентов.
      */
-    private function dumpAgents()
+    private function dumpAgents($needLog = true)
     {
-        file_put_contents($this->dumpFileName, json_encode($this->agents));
+        if($needLog === true){
+            $agentsTable = PHP_EOL;
+            foreach ($this->agents as $agent){
+                $agentsTable .= "{$agent['number']} idle:{$agent['idle']} user-idle:{$agent['user-idle']} unavailable:{$agent['unavailable']} penalty:{$agent['penalty']} end-last-call:{$agent['end-last-call']}".PHP_EOL;
+            }
+            $this->verbose($agentsTable);
+        }
+        $newData = json_encode($this->agents);
+        $oldData = file_get_contents($this->dumpFileName);
+        if($newData !== $oldData){
+            file_put_contents($this->dumpFileName, $newData);
+        }
     }
 
     /**
@@ -138,7 +149,7 @@ class MikoCallRoutingServer
             $data .= PHP_EOL;
         }
         $message = print_r($data, true);
-        file_put_contents($this->logFileName, $message, FILE_APPEND);
+        file_put_contents($this->logFileName, date('Y-m-d H:i:s').' '.$message, FILE_APPEND);
     }
 
     /**
@@ -310,12 +321,11 @@ class MikoCallRoutingServer
      */
     public function start()
     {
-        // cli_set_process_title(self::PROCESS_NAME);
         $this->verbose("Start service...");
         while ($this->needRestart === false) {
             $this->queueAgent->wait(3);
             $this->updateStatuses();
-            $this->dumpAgents();
+            $this->dumpAgents(false);
         }
     }
 
@@ -355,7 +365,6 @@ class MikoCallRoutingServer
             $this->agents[$data['DST']]['end-last-call'] = $data['TIME'];
         }
         $this->agents[$data['DST']]['penalty'] = $data['TIME'];
-        $this->verbose($this->agents);
         $tube->reply(true);
         $this->dumpAgents();
     }
@@ -392,7 +401,6 @@ class MikoCallRoutingServer
             $this->agents[$numberAgent]['end-last-call'] = microtime(true);
             $this->agents[$numberAgent]['penalty']       = $this->agents[$numberAgent]['end-last-call'];
         }
-        $this->verbose('Update agents status... ');
         $this->dumpAgents();
         return $numberAgent;
     }
