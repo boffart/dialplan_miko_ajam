@@ -143,6 +143,7 @@ class MikoCallRouting{
         $this->agi->set_variable('AGIEXITONHANGUP', 'yes');
         $this->agi->set_variable('AGISIGHUP', 'yes');
         $this->agi->set_variable('__ENDCALLONANSWER', 'yes');
+        $this->agi->set_variable('CHANNEL(hangup_handler_wipe)', 'miko-custom-hangup-handler,s,1');
 
         if(!$this->ringing) {
             $this->agi->exec('Answer', '');
@@ -230,11 +231,15 @@ class MikoCallRouting{
      * @return mixed
      */
     private function dial($dst){
+        $this->agi->set_variable('MASTER_CHANNEL(M_DIALEDPEERNUMBER)', $dst);
+        $this->agi->set_variable('MASTER_CHANNEL(__M_DIALEDPEERNUMBER)', $dst);
         $this->agi->set_variable('__M_DIALEDPEERNUMBER', $dst);
         $this->agi->exec_dial('Local', $dst.'@'.$this->context.'/n', $this->timeout, $this->dialOptions);
         $DIAL_STATUS = $this->agi->get_variable('DIALSTATUS', true);
         $this->agi->noop("DIALSTATUS -> $DIAL_STATUS");
-        $this->changeStatus($dst, $DIAL_STATUS);
+        if($DIAL_STATUS === 'ANSWER') {
+            $this->changeStatus($dst, $DIAL_STATUS);
+        }
         return $DIAL_STATUS;
     }
 }

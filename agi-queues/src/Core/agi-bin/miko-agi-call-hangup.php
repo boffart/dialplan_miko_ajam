@@ -27,7 +27,13 @@ $agi = new AGI();
 //  php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/miko-agi-call-routing.php
 $dst    = $agi->get_variable('M_DIALEDPEERNUMBER', true);
 $status = $agi->get_variable('DIALSTATUS', true);
+
+if(empty($dst)){
+    $dst       = $agi->get_variable('MASTER_CHANNEL(M_DIALEDPEERNUMBER)', true);
+    $agi->verbose("Miko queue and call... MASTER_CHANNEL(M_DIALEDPEERNUMBER)='$dst', status='$status'");
+}
 if(!empty($dst) && !empty($status)){
     $callRouting = new MikoCallRouting();
     $callRouting->changeStatus($dst, $status);
 }
+$agi->verbose("Miko queue and call... dst='$dst', status='$status'");
