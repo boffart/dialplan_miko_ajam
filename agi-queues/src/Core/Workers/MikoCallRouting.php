@@ -231,15 +231,19 @@ class MikoCallRouting{
      * @return mixed
      */
     private function dial($dst){
-        $this->agi->set_variable('MASTER_CHANNEL(M_DIALEDPEERNUMBER)', $dst);
         $this->agi->set_variable('MASTER_CHANNEL(__M_DIALEDPEERNUMBER)', $dst);
         $this->agi->set_variable('__M_DIALEDPEERNUMBER', $dst);
+
+        $linkedid = $this->agi->get_variable('CHANNEL(linkedid)',true);
+        //$filename = __DIR__.'/../../../tmp/'.$linkedid;
+        $filename = '/usr/src/dialplan-miko-ajam/agi-queues/tmp/'.$linkedid;
+        @file_put_contents($filename, $dst);
+
         $this->agi->exec_dial('Local', $dst.'@'.$this->context.'/n', $this->timeout, $this->dialOptions);
         $DIAL_STATUS = $this->agi->get_variable('DIALSTATUS', true);
         $this->agi->noop("DIALSTATUS -> $DIAL_STATUS");
-        if($DIAL_STATUS === 'ANSWER') {
-            $this->changeStatus($dst, $DIAL_STATUS);
-        }
+
+        $this->changeStatus($dst, $DIAL_STATUS);
         return $DIAL_STATUS;
     }
 }

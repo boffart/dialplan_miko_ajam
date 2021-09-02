@@ -14,6 +14,7 @@ unzip dialplan_miko_ajam-master.zip
 # Разместить исходники в каталоге:
 mv /usr/src/dialplan_miko_ajam-master /usr/src/dialplan-miko-ajam
 rm -rf dialplan_miko_ajam-master.zip
+mkdir /usr/src/dialplan-miko-ajam/agi-queues/tmp
 # Сменить владельца каталога
 chown -R asterisk:asterisk /usr/src/dialplan-miko-ajam
 # Предоставим права на исполонение:

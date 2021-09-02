@@ -24,7 +24,6 @@ require_once __DIR__.'/../../../vendor/autoload.php';
 require_once __DIR__.'/../../../settings.php';
 
 $agi = new AGI();
-//  php -f /usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/miko-agi-call-routing.php
 $dst    = $agi->get_variable('M_DIALEDPEERNUMBER', true);
 $status = $agi->get_variable('DIALSTATUS', true);
 
@@ -32,6 +31,12 @@ if(empty($dst)){
     $dst       = $agi->get_variable('MASTER_CHANNEL(M_DIALEDPEERNUMBER)', true);
     $agi->verbose("Miko queue and call... MASTER_CHANNEL(M_DIALEDPEERNUMBER)='$dst', status='$status'");
 }
+if(empty($dst)){
+    $linkedid = $agi->get_variable('CHANNEL(linkedid)',true);
+    $filename = '/usr/src/dialplan-miko-ajam/agi-queues/tmp/'.$linkedid;
+    $dst = @file_get_contents($filename);
+}
+
 if(!empty($dst) && !empty($status)){
     $callRouting = new MikoCallRouting();
     $callRouting->changeStatus($dst, $status);
