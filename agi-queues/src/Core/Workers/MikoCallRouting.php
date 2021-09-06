@@ -143,7 +143,6 @@ class MikoCallRouting{
         $this->agi->set_variable('AGIEXITONHANGUP', 'yes');
         $this->agi->set_variable('AGISIGHUP', 'yes');
         $this->agi->set_variable('__ENDCALLONANSWER', 'yes');
-        $this->agi->set_variable('CHANNEL(hangup_handler_wipe)', 'miko-custom-hangup-handler,s,1');
 
         if(!$this->ringing) {
             $this->agi->exec('Answer', '');
@@ -233,13 +232,8 @@ class MikoCallRouting{
     private function dial($dst){
         $this->agi->set_variable('MASTER_CHANNEL(__M_DIALEDPEERNUMBER)', $dst);
         $this->agi->set_variable('__M_DIALEDPEERNUMBER', $dst);
-
-        $linkedid = $this->agi->get_variable('CHANNEL(linkedid)',true);
-        //$filename = __DIR__.'/../../../tmp/'.$linkedid;
-        $filename = '/usr/src/dialplan-miko-ajam/agi-queues/tmp/'.$linkedid;
-        @file_put_contents($filename, $dst);
-
-        $this->agi->exec_dial('Local', $dst.'@'.$this->context.'/n', $this->timeout, $this->dialOptions);
+        $this->agi->set_variable('__DIALSTATUS', 'NOANSWERED'); // ANSWER
+        $this->agi->exec_dial('Local', $dst.'@'.$this->context.'/n', $this->timeout, $this->dialOptions.'b(miko-dial-create-chan,s,1)U(miko-dial-answer)');
         $DIAL_STATUS = $this->agi->get_variable('DIALSTATUS', true);
         $this->agi->noop("DIALSTATUS -> $DIAL_STATUS");
 

@@ -50,6 +50,18 @@ exten => h,1,AGI(/usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/miko-ag
 [miko-custom-queue]
 exten => _[0-9*#+a-zA-Z][0-9*#+a-zA-Z]!,1,AGI(/usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/miko-agi-call-routing.php)
 
+[miko-custom-hangup-handler]
+exten => s,1,AGI(/usr/src/dialplan-miko-ajam/agi-queues/src/Core/agi-bin/miko-agi-call-hangup.php)
+    same => n,return();
+
+[miko-dial-create-chan]
+exten => s,1,Set(CHANNEL(hangup_handler_wipe)=miko-custom-hangup-handler,s,1)
+	same => n,return
+
+[miko-dial-answer]
+exten = s,1,Set(DIALSTATUS=ANSWER)
+	same = n,return()
+
 [from-internal-custom]
 ; Вместо 333 указать УНИКАЛЬНЫЙ номер, для более удобной переадресации на очередь.
 exten => 333,1,Goto(miko-custom-call-routing,${EXTEN},1)
